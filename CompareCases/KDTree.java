@@ -5,6 +5,12 @@ import org.dfpl.dbp.rtree.Rectangle;
 
 import java.util.*;
 
+/*
+    트리 밸런싱을 고려하지 않는 2D KDTree
+    점 자체를 기준으로, X축과 Y축을 번갈아가며 공간을 2분할해가는 구조.
+
+    밸런싱을 안하기 때문에 삽입 포인트가 적으면 성능이 운에 많이 좌우됨
+*/
 public class KDTree {
     kdNode root;
     public KDTree() {
@@ -23,8 +29,7 @@ public class KDTree {
 
         if((isBasedOnX && (p.getX() < curNode.point.getX()) ||
           (!isBasedOnX && (p.getY() < curNode.point.getY())))
-        )
-        {
+        ) {
             curNode.leftNode = rInsertNode(curNode.leftNode, p, depth + 1);
         }
         else {
@@ -37,40 +42,36 @@ public class KDTree {
         ArrayList<Point> results = new ArrayList<>();
         return rRangeSearch(root, rectangle, results, 0).iterator();
     }
-    ArrayList<Point> rRangeSearch(kdNode curNode, Rectangle rec, ArrayList<Point> results, int depth) {
+    ArrayList<Point> rRangeSearch(kdNode curNode, Rectangle rect, ArrayList<Point> results, int depth) {
         if (curNode == null) return null;
 
-        if(IsPointInRect(curNode.point, rec)) {
+        if(isPointInRect(curNode.point, rect)) {
             results.add(curNode.point);
         }
 
         boolean isBasedOnX = depth % 2 == 0;
 
         ArrayList<Point> r;
-        if ((isBasedOnX && rec.getLeftTop().getX() <= curNode.point.getX()) ||
-           (!isBasedOnX && rec.getLeftTop().getY() <= curNode.point.getY())) {
-            r = rRangeSearch(curNode.leftNode, rec, results, depth + 1);
+        if ((isBasedOnX && rect.getLeftTop().getX() <= curNode.point.getX()) ||
+           (!isBasedOnX && rect.getLeftTop().getY() <= curNode.point.getY())) {
+            r = rRangeSearch(curNode.leftNode, rect, results, depth + 1);
             if (r != null) results = r;
         }
 
-        if ((isBasedOnX && rec.getRightBottom().getX() >= curNode.point.getX()) ||
-           (!isBasedOnX && rec.getRightBottom().getY() >= curNode.point.getY())) {
-            r = rRangeSearch(curNode.rightNode, rec, results, depth + 1);
+        if ((isBasedOnX && rect.getRightBottom().getX() >= curNode.point.getX()) ||
+           (!isBasedOnX && rect.getRightBottom().getY() >= curNode.point.getY())) {
+            r = rRangeSearch(curNode.rightNode, rect, results, depth + 1);
             if (r != null) results = r;
         }
 
         return results;
     }
-    boolean IsPointInRect(Point p, Rectangle rec) {
-        if (p.getX()>=rec.getLeftTop().getX() &&
-            p.getX()<=rec.getRightBottom().getX() &&
-            p.getY()>=rec.getLeftTop().getY() &&
-            p.getY()<=rec.getRightBottom().getY()) {
-            return true;
-        }
-        return false;
+    boolean isPointInRect(Point p, Rectangle rect) {
+        return  p.getX()>=rect.getLeftTop().getX() &&
+                p.getX()<=rect.getRightBottom().getX() &&
+                p.getY()>=rect.getLeftTop().getY() &&
+                p.getY()<=rect.getRightBottom().getY();
     }
-
 
     public Iterator<Point> nearest(Point source, int maxCount) {
         Map<Point, Double> results = new HashMap<Point, Double>();
@@ -82,7 +83,7 @@ public class KDTree {
         if (curNode == null) return null;
 
         double dist = source.distance(curNode.point);
-        Map.Entry<Point, Double> maxPointDist = GetMaxDistancePoint(results);
+        Map.Entry<Point, Double> maxPointDist = getMaxDistancePoint(results);
 
         if (results.size() < maxCount) {
             results.put(curNode.point, dist);
@@ -119,7 +120,7 @@ public class KDTree {
         if (results.size() < maxCount) shouldVisit = true;
         else {
             double splitDist = Math.abs(srcValue - curValue);
-            maxPointDist = GetMaxDistancePoint(results);
+            maxPointDist = getMaxDistancePoint(results);
             if(splitDist*splitDist < maxPointDist.getValue()) {
                 shouldVisit = true;
             }
@@ -132,7 +133,7 @@ public class KDTree {
         }
         return results;
     }
-    Map.Entry<Point, Double> GetMaxDistancePoint(Map<Point, Double> map) {
+    Map.Entry<Point, Double> getMaxDistancePoint(Map<Point, Double> map) {
         double maxDist=0;
         Point maxPoint=null;
         for (Map.Entry<Point, Double> e : map.entrySet()) {
@@ -199,19 +200,19 @@ public class KDTree {
         kdNode minNode = curNode;
 
         if (leftMinNode != null) {
-            if (compareCoord(leftMinNode.point, minNode.point, isXAxis) < 0) {
+            if (comparePointByAxis(leftMinNode.point, minNode.point, isXAxis) < 0) {
                 minNode = leftMinNode;
             }
         }
         if (rightMinNode != null) {
-            if (compareCoord(rightMinNode.point, minNode.point, isXAxis) < 0) {
+            if (comparePointByAxis(rightMinNode.point, minNode.point, isXAxis) < 0) {
                 minNode = rightMinNode;
             };
         }
 
         return minNode;
     }
-    int compareCoord(Point a, Point b, boolean isXAxis) {
+    int comparePointByAxis(Point a, Point b, boolean isXAxis) {
         if (isXAxis == true) return Double.compare(a.getX(), b.getX());
         return Double.compare(a.getY(), b.getY());
     }
