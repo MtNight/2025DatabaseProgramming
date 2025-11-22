@@ -365,6 +365,7 @@ public class RTreeImpl implements RTree {
     private RTreeNode findLeaf(RTreeNode node, Point target) {
         if (node == null) return null;
 
+
         // leaf라면 points에서 검색
         if (node.isLeaf) {
             for (Point p : node.points) {
