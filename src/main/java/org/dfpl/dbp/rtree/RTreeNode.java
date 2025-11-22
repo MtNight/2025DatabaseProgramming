@@ -5,32 +5,23 @@ import java.util.List;
 
 public class RTreeNode {
 
-    // 리프 여부 (true = 리프 노드, false = 내부 노드)
+    // true면 리프 노드, false면 내부 노드
     boolean isLeaf;
 
-    // 리프 노드가 갖는 데이터
+    // 리프 노드에서 사용하는 필드
     List<Point> points;
 
-    // 내부 노드가 갖는 자식 노드
+    // 내부 노드에서 사용하는 필드
     List<RTreeNode> children;
 
-    // 이 노드를 대표하는 최소 경계 사각형(MBR: Minimum Bounding Rectangle)
+    // 이 노드를 대표하는 MBR (최소 경계 사각형)
     Rectangle mbr;
 
     // 부모 노드를 가리키는 포인터
     RTreeNode parent;
 
-    // 최대 차수 (4-way R-tree → 최대 4개 엔트리)
+    // 최대 차수 (4-way R-tree → 한 노드에 최대 4개의 엔트리)
     public static final int MAX = 4;
-
-    // 최소 엔트리 수 (delete 시 필요)
-    public static final int MIN = 2;
-
-    // 기본 생성자
-    public RTreeNode() {
-        this.parent = null;
-        this.mbr = null;
-    }
 
     // 리프 노드 생성
     public static RTreeNode createLeaf() {
@@ -38,29 +29,20 @@ public class RTreeNode {
         node.isLeaf = true;
         node.points = new ArrayList<>();
         node.children = null;
+        node.mbr = null;   // 아직 포인트가 없으므로 MBR은 null
+        node.parent = null;
         return node;
     }
 
-    // 내부 노드 생성
+    // 내부 노드 생성 메소드
     public static RTreeNode createInternal() {
         RTreeNode node = new RTreeNode();
         node.isLeaf = false;
         node.children = new ArrayList<>();
         node.points = null;
+        node.mbr = null;
+        node.parent = null;
         return node;
-    }
-
-    // 리프 노드에 포인트 추가
-    public void addPoint(Point p) {
-        points.add(p);
-        updateMBR();
-    }
-
-    // 내부 노드에 자식 추가
-    public void addChild(RTreeNode child) {
-        children.add(child);
-        child.parent = this;
-        updateMBR();
     }
 
     // 현재 노드의 MBR을 다시 계산
@@ -79,40 +61,34 @@ public class RTreeNode {
             return;
         }
 
-        double minX = points.get(0).getX(); //point의 첫 점 기준
+        double minX = points.get(0).getX();
         double maxX = points.get(0).getX();
         double minY = points.get(0).getY();
         double maxY = points.get(0).getY();
 
-        for (Point p : points) {     //모든 점 돌며 min찾기
+        for (Point p : points) {
             minX = Math.min(minX, p.getX());
             maxX = Math.max(maxX, p.getX());
             minY = Math.min(minY, p.getY());
             maxY = Math.max(maxY, p.getY());
         }
 
+        // leftTop = (minX, maxY), rightBottom = (maxX, minY)
         mbr = new Rectangle(
-                new Point(minX, maxY),     // leftTop
-                new Point(maxX, minY)      // rightBottom
+                new Point(minX, maxY),
+                new Point(maxX, minY)
         );
     }
 
-    // 내부 노드 MBR 계산 (자식들의 MBR을 모두 포함하는 최소 경계 사각형)
+    // 내부 노드 MBR 계산 (자식 MBR을 모두 포함하는 MBR)
     private void updateInternalMBR() {
         if (children == null || children.isEmpty()) {
             mbr = null;
             return;
         }
 
-        // 첫 번째 유효한 child MBR 찾기
-        Rectangle first = null;
-        for (RTreeNode child : children) {   //MBR이 없는 자식
-            if (child.mbr != null) {
-                first = child.mbr;
-                break;
-            }
-        }
-
+        // 자식 중 첫 번째의 MBR을 기준으로 시작
+        Rectangle first = children.get(0).mbr;
         if (first == null) {
             mbr = null;
             return;
@@ -125,8 +101,8 @@ public class RTreeNode {
 
         for (RTreeNode child : children) {
             if (child.mbr == null) continue;
-
             Rectangle r = child.mbr;
+
             minX = Math.min(minX, r.getLeftTop().getX());
             maxX = Math.max(maxX, r.getRightBottom().getX());
             minY = Math.min(minY, r.getRightBottom().getY());

@@ -28,37 +28,37 @@ public class Assignment45 {
 		// 과제2: 4-way R-Tree의 탐색 (5점)
 		// 요건: 탐색 박스 (0,0,100,100)을 보여주고 내부의 포인트가 드러나게 함 (부분 2.5점)
 		// 요건: 검색 범위와 겹치지 않는 영역이 가지치기 되는 점을 부각할 수 있어야 함 (부분 2.5점)
-		Iterator<Point> iterator = rTree.search(new Rectangle(new Point(0, 0), new Point(100, 100)));
-		while (iterator.hasNext()) {
-			Point next = iterator.next();
-			System.out.println(next);
-//		 	(45,15)
-//	     	(35,20)
-//	        (25,25)
-//	        (20,30)
-//	        (28,32)
-//	        (15,45)
-//	        (30,40)
-//	        (40,35)
-//	        (70,80)
-//	        (95,90)
-//	        (100,65)
-		}
-
-		// 과제3: 4-way R-Tree의 KNN 검색 (5점)
-		// 요건: 탐색된 점들을 보여줄 수 있다 (부분 2.5점)
-		// 요건: 탐색의 과정을 단계별로 보여줄 수 있어야 함 (부분 2.5)
-		Point source = new Point(75, 85);
-		iterator = rTree.nearest(source, 5);
-		while (iterator.hasNext()) {
-			Point next = iterator.next();
-			System.out.println(next + ":" + source.distance(next));			
-//				(70,80) : 7.07
-//		       	(95,90) : 20.62
-//		       	(80,110) : 25.50
-//		       	(100,65) : 32.02
-//		       	(120,100) : 47.43
-		}
+//		Iterator<Point> iterator = rTree.search(new Rectangle(new Point(0, 0), new Point(100, 100)));
+//		while (iterator.hasNext()) {
+//			Point next = iterator.next();
+//			System.out.println(next);
+////		 	(45,15)
+////	     	(35,20)
+////	        (25,25)
+////	        (20,30)
+////	        (28,32)
+////	        (15,45)
+////	        (30,40)
+////	        (40,35)
+////	        (70,80)
+////	        (95,90)
+////	        (100,65)
+//		}
+//
+//		// 과제3: 4-way R-Tree의 KNN 검색 (5점)
+//		// 요건: 탐색된 점들을 보여줄 수 있다 (부분 2.5점)
+//		// 요건: 탐색의 과정을 단계별로 보여줄 수 있어야 함 (부분 2.5)
+//		Point source = new Point(75, 85);
+//		iterator = rTree.nearest(source, 5);
+//		while (iterator.hasNext()) {
+//			Point next = iterator.next();
+//			System.out.println(next + ":" + source.distance(next));
+////				(70,80) : 7.07
+////		       	(95,90) : 20.62
+////		       	(80,110) : 25.50
+////		       	(100,65) : 32.02
+////		       	(120,100) : 47.43
+//		}
 
 		// 과제4: 4-way R-Tree의 노드 제거 (5점)
 		// 요건: point가 제거될 때마다 변형된 계층적 Bounding Box들이 표시되어야 함
