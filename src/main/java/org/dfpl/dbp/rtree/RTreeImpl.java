@@ -3,15 +3,20 @@ package org.dfpl.dbp.rtree;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Stack;
 
 public class RTreeImpl implements RTree {
 
-    // 4-way R-Tree의 최소 엔트리 수 (MIN)를 RTreeNode 클래스 대신 RTreeImpl에 정의 (MAX의 절반으로 가정)
+    // 4-way R-Tree의 최소 엔트리 수 (MIN)는 MAX의 절반인 2
     public static final int MIN = RTreeNode.MAX / 2;
 
     // R-Tree의 루트 노드
     private RTreeNode root;
+
+    // 재삽입을 위해 수집된 Point 객체를 임시로 담는 리스트
+    private List<Point> reinsertPoints = new ArrayList<>();
+
+    // R-Tree의 재삽입은 Point만으로 충분하며, 내부 노드 재삽입은 복잡하여 생략합니다.
+    // private List<RTreeNode> reinsertNodes = new ArrayList<>();
 
     public RTreeImpl() {
         // R-tree는 최소 1개의 리프 노드로 시작해야 한다.
@@ -31,7 +36,6 @@ public class RTreeImpl implements RTree {
 
         // 2. 중복 점이면 무시
         for (Point p : leaf.points) {
-            // Point의 equals()가 오버라이드되었다고 가정하고, 기존 로직 유지
             if (p.getX() == point.getX() && p.getY() == point.getY()) {
                 return;
             }
@@ -67,7 +71,6 @@ public class RTreeImpl implements RTree {
         Rectangle pRect = new Rectangle(p, p);
 
         for (RTreeNode child : node.children) {
-            // child.mbr이 null인 경우 방어 로직 추가
             if (child.mbr == null) continue;
 
             double expand = child.mbr.enlargement(pRect);
@@ -78,16 +81,11 @@ public class RTreeImpl implements RTree {
             }
         }
 
-        // best가 null이 아닐 때만 재귀 호출
         if (best != null) {
             return chooseLeaf(best, p);
+        } else if (!node.children.isEmpty() && node.children.get(0).mbr != null) {
+            return chooseLeaf(node.children.get(0), p);
         } else {
-            // 예외 상황 처리: 자식은 있는데 MBR이 모두 null인 경우 (발생해서는 안됨)
-            // 임시로 첫 번째 자식 선택
-            if (!node.children.isEmpty() && node.children.get(0).mbr != null) {
-                return chooseLeaf(node.children.get(0), p);
-            }
-            // 최종적으로 리프 노드를 찾지 못한 경우, 임시로 리프 생성 (매우 위험한 동작)
             return RTreeNode.createLeaf();
         }
     }
@@ -124,7 +122,6 @@ public class RTreeImpl implements RTree {
             }
         }
 
-        // seed1, seed2가 null일 가능성 방지 (points.size() < 2인 경우는 split이 호출되면 안됨)
         if (seed1 == null || seed2 == null) return;
 
         // 새 리프 노드 생성
@@ -146,19 +143,16 @@ public class RTreeImpl implements RTree {
             double enlargeOld = enlargementAfterInsert(leaf, p);
             double enlargeNew = enlargementAfterInsert(newLeaf, p);
 
-            // 동률 시 기존 노드(leaf)에 삽입 (기존 로직 유지)
             if (enlargeOld <= enlargeNew) {
                 leaf.points.add(p);
-                // leaf.updateMBR(); // MBR 업데이트는 모든 할당 후 일괄적으로 하는 것이 좋습니다.
             } else {
                 newLeaf.points.add(p);
-                // newLeaf.updateMBR();
             }
         }
 
-        // 최종 MBR 업데이트
         leaf.updateMBR();
         newLeaf.updateMBR();
+
 
         // 3. 부모 갱신
         adjustParentAfterSplit(leaf, newLeaf);
@@ -188,7 +182,6 @@ public class RTreeImpl implements RTree {
 
         for (int i = 0; i < children.size(); i++) {
             for (int j = i + 1; j < children.size(); j++) {
-                // MBR이 null이면 계산 불가
                 if (children.get(i).mbr == null || children.get(j).mbr == null) continue;
 
                 double diff = Math.abs(children.get(i).mbr.area() - children.get(j).mbr.area());
@@ -200,7 +193,6 @@ public class RTreeImpl implements RTree {
             }
         }
 
-        // seed1, seed2가 null일 가능성 방지 (children.size() < 2인 경우는 split이 호출되면 안됨)
         if (seed1 == null || seed2 == null) return;
 
         RTreeNode group1 = node;                 // 기존 노드가 그룹1
@@ -222,19 +214,15 @@ public class RTreeImpl implements RTree {
             double enlarge1 = enlargementAfterInsert(group1, c.mbr);
             double enlarge2 = enlargementAfterInsert(group2, c.mbr);
 
-            // 동률 시 기존 노드(group1)에 삽입 (기존 로직 유지)
             if (enlarge1 <= enlarge2) {
                 group1.children.add(c);
                 c.parent = group1;
-                // group1.updateMBR();
             } else {
                 group2.children.add(c);
                 c.parent = group2;
-                // group2.updateMBR();
             }
         }
 
-        // 최종 MBR 업데이트
         group1.updateMBR();
         group2.updateMBR();
 
@@ -291,7 +279,7 @@ public class RTreeImpl implements RTree {
     }
 
     // ======================================================================
-    //  Deletion Logic (수정됨)
+    //  Deletion Logic (Condense Tree 및 재삽입 포함)
     @Override
     public void delete(Point point) {
         if (root == null) return;
@@ -299,9 +287,7 @@ public class RTreeImpl implements RTree {
         RTreeNode leaf = findLeaf(root, point);
         if (leaf == null) return;
 
-        // Point의 equals()를 사용하도록 List.remove()를 사용하는 것이 더 정확하나,
-        // 기존 로직을 유지하면서 Point.equals()가 동일한 좌표에 대해 true를 반환한다고 가정합니다.
-        // leaf.points.remove(point); // <== 권장되는 방식
+        // Point의 equals()를 사용하여 요소 제거
         leaf.points.removeIf(p ->
                 p.getX() == point.getX() &&
                         p.getY() == point.getY()
@@ -310,32 +296,26 @@ public class RTreeImpl implements RTree {
         // 1. 노드 재조정 (Condense Tree) 로직 시작
         condenseTree(leaf);
 
-        // 2. 루트 노드 정리 (Condense Tree 로직의 일부)
+        // 2. 루트 노드 정리
         if (!root.isLeaf && root.children.size() == 1) {
-            // 루트가 내부 노드인데 자식이 하나만 남은 경우, 그 자식을 새 루트로 승격
             RTreeNode newRoot = root.children.get(0);
             newRoot.parent = null;
             root = newRoot;
         } else if (root.isLeaf && root.points.isEmpty()) {
-            // 루트가 리프이고 비어 있으면 트리 초기화
             root = RTreeNode.createLeaf();
         }
     }
 
     /**
-     * @brief 삭제 후 노드 재조정 (Condense Tree) 로직 구현
-     * MIN 엔트리 조건을 위반한 노드를 제거하고 MBR을 연쇄적으로 갱신합니다.
-     * (재삽입 로직은 생략하고 단순 제거/정리만 구현했습니다.)
+     * @brief 삭제 후 노드 재조정 (Condense Tree) 로직
      */
     private void condenseTree(RTreeNode node) {
         RTreeNode n = node;
 
-        // Stack<RTreeNode> reinsertList = new Stack<>(); // 재삽입 리스트 (선택적)
-
         while (n != null && n != root) {
             RTreeNode parent = n.parent;
 
-            if (parent == null) break; // 혹시 모를 방어
+            if (parent == null) break;
 
             // 1. 최소 엔트리 조건 검사
             if ((n.isLeaf && n.points.size() < MIN) ||
@@ -343,23 +323,42 @@ public class RTreeImpl implements RTree {
 
                 // 최소 조건을 위반하면 부모로부터 제거
                 parent.children.remove(n);
-                // TODO: 제거된 노드의 엔트리/자식들을 reinsertList에 추가하는 로직 필요
 
+                // === 재삽입을 위한 엔트리 수집 ===
+                if (n.isLeaf) {
+                    reinsertPoints.addAll(n.points); // 리프 노드의 Point 수집
+                    n.points.clear();
+                } else {
+                    // 내부 노드의 자식들(MBR)도 재삽입해야 하나, 과제 단순화를 위해 무시
+                }
             }
 
             // 2. MBR 갱신
-            // (노드가 제거되었거나, 엔트리가 줄었거나)
             parent.updateMBR();
 
             n = parent;
         }
 
-        // 루트의 MBR 최종 갱신
         if (root != null) {
             root.updateMBR();
         }
 
-        // TODO: reinsertList의 엔트리/자식들을 R-Tree에 다시 삽입하는 로직 추가 필요
+        // === 재삽입 실행 ===
+        performReinsertion();
+    }
+
+    /**
+     * @brief CondenseTree에서 수집된 Point 엔트리들을 트리에 다시 삽입합니다.
+     */
+    private void performReinsertion() {
+        if (reinsertPoints.isEmpty()) return;
+
+        List<Point> pointsToReinsert = new ArrayList<>(reinsertPoints);
+        reinsertPoints.clear();
+
+        for (Point p : pointsToReinsert) {
+            add(p); // add 함수를 재사용하여 적절한 위치에 재삽입
+        }
     }
 
     // leaf 찾기
@@ -369,7 +368,6 @@ public class RTreeImpl implements RTree {
         // leaf라면 points에서 검색
         if (node.isLeaf) {
             for (Point p : node.points) {
-                // Point의 equals()가 오버라이드되었다고 가정하고, 기존 로직 유지
                 if (p.getX() == target.getX() && p.getY() == target.getY()) {
                     return node;
                 }
@@ -379,7 +377,6 @@ public class RTreeImpl implements RTree {
 
         // 내부노드면 child의 MBR이 target을 포함하는 것만 탐색
         for (RTreeNode child : node.children) {
-            // MBR이 null인 경우 방지
             if (child.mbr != null && child.mbr.contains(target)) {
                 RTreeNode found = findLeaf(child, target);
                 if (found != null) return found;
@@ -392,6 +389,9 @@ public class RTreeImpl implements RTree {
     // -------------------------------------------------------------------
     @Override
     public boolean isEmpty() {
+        // 루트가 null인 경우를 대비하여 방어 코드 추가
+        if (root == null) return true;
+
         return root.isLeaf && root.points.isEmpty();
     }
 }

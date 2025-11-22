@@ -88,11 +88,19 @@ public class RTreeNode {
         }
 
         // 자식 중 첫 번째의 MBR을 기준으로 시작
-        Rectangle first = children.get(0).mbr;
+        Rectangle first = null;
+        for (RTreeNode child : children) {
+            if (child.mbr != null) {
+                first = child.mbr;
+                break;
+            }
+        }
+
         if (first == null) {
             mbr = null;
             return;
         }
+
 
         double minX = first.getLeftTop().getX();
         double maxX = first.getRightBottom().getX();
