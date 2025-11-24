@@ -3,10 +3,7 @@ package org.dfpl.dbp.rtree.CompareCases;
 import org.dfpl.dbp.rtree.Point;
 import org.dfpl.dbp.rtree.Rectangle;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 //main class for testing performance of structures
 public class ComparingTest {
@@ -23,32 +20,52 @@ public class ComparingTest {
         int testPointCnt = 100000;
         List<Point> testPoints = new ArrayList<Point>();
         Random random = new Random();
-        int warmup=0;
         for(int i=0;i<testPointCnt;i++) {
             testPoints.add(new Point(random.nextDouble(),  random.nextDouble()));
-            warmup++;
         }
+        ArrayList<Point> arrayList = new ArrayList<>();
+        LinkedList<Point> linkedList = new LinkedList<>();
 
+        //TimeStamp rt = TestRTree(testPoints);
+        TimeStamp arl = TestList(arrayList, testPoints);
+        TimeStamp lkl = TestList(linkedList, testPoints);
         TimeStamp kdt = TestKDTree(testPoints);
         TimeStamp qt = TestQuadTree(testPoints);
 
-        System.out.println("insert time - KDTree:\t"+kdt.insertTime+"ns");
-        System.out.println("insert time - QuadTree:\t"+qt.insertTime+"ns");
+        System.out.println("Test Results - testPoints: " + testPointCnt + "\n");
+
+        //System.out.println("insert time - RTree:\t"+rt.insertTime+"ns");
+        System.out.println("insert time - ArrayList:\t"+arl.insertTime+"ns");
+        System.out.println("insert time - LinkedList:\t"+lkl.insertTime+"ns");
+        System.out.println("insert time - KDTree:\t\t"+kdt.insertTime+"ns");
+        System.out.println("insert time - QuadTree:\t\t"+qt.insertTime+"ns");
         System.out.println();
-        System.out.println("search time - KDTree:\t"+kdt.searchTime+"ns");
-        System.out.println("search time - QuadTree:\t"+qt.searchTime+"ns");
+        //System.out.println("search time - RTree:\t"+rt.searchTime+"ns");
+        System.out.println("search time - ArrayList:\t"+arl.searchTime+"ns");
+        System.out.println("search time - LinkedList:\t"+lkl.searchTime+"ns");
+        System.out.println("search time - KDTree:\t\t"+kdt.searchTime+"ns");
+        System.out.println("search time - QuadTree:\t\t"+qt.searchTime+"ns");
         System.out.println();
-        System.out.println("nearest time - KDTree:\t"+kdt.nearestTime+"ns");
-        System.out.println("nearest time - QuadTree:"+qt.nearestTime+"ns");
+        //System.out.println("nearest time - RTree:\t"+rt.nearestTime+"ns");
+        System.out.println("nearest time - ArrayList:\t"+arl.nearestTime+"ns");
+        System.out.println("nearest time - LinkedList:\t"+lkl.nearestTime+"ns");
+        System.out.println("nearest time - KDTree:\t\t"+kdt.nearestTime+"ns");
+        System.out.println("nearest time - QuadTree:\t"+qt.nearestTime+"ns");
         System.out.println();
-        System.out.println("delete time - KDTree:\t"+kdt.deleteTime+"ns");
-        System.out.println("delete time - QuadTree:\t"+qt.deleteTime+"ns");
+        //System.out.println("delete time - RTree:\t"+rt.deleteTime+"ns");
+        System.out.println("delete time - ArrayList:\t"+arl.deleteTime+"ns");
+        System.out.println("delete time - LinkedList:\t"+lkl.deleteTime+"ns");
+        System.out.println("delete time - KDTree:\t\t"+kdt.deleteTime+"ns");
+        System.out.println("delete time - QuadTree:\t\t"+qt.deleteTime+"ns");
         System.out.println();
-        System.out.println("whole time - KDTree:\t"+kdt.wholeTime+"ns");
-        System.out.println("whole time - QuadTree:\t"+qt.wholeTime+"ns");
+        //System.out.println("whole time - RTree:\t"+rt.wholeTime+"ns");
+        System.out.println("whole time - ArrayList:\t\t"+arl.wholeTime+"ns");
+        System.out.println("whole time - LinkedList:\t"+lkl.wholeTime+"ns");
+        System.out.println("whole time - KDTree:\t\t"+kdt.wholeTime+"ns");
+        System.out.println("whole time - QuadTree:\t\t"+qt.wholeTime+"ns");
     }
     /*
-    두 테스트 케이스 테스트 결과
+    KDTree - QuadTree 비교 테스트 결과
     포인트가 십만개정도 넘어가면 KDTree가 빠름. 그 이하에선 QuadTree가 좋음.
 
     이론적인 평균 시간복잡도 (최악 시간복잡도는 O(N)으로 동일)
@@ -68,7 +85,90 @@ public class ComparingTest {
     QuadTree는 KDTree보다 분할도 더 하는 데다가, 삽입삭제 시 속도가 빠름. 그러나 정확하게 반반으로 나누기 때문에 N이 커질수록 점점 분할이 어려워져서 느려지는 듯?
 
     */
+    static TimeStamp TestList(List<Point> list, List<Point> pointList) {
+        long startTime, endTime;
+        TimeStamp ts = new TimeStamp();
+        //Case 0: List
 
+        // Test For Insert Nodes - 그냥 복사해도 되긴 하지만 성능 비교를 위해 그냥 이렇게 넣음
+        startTime = System.nanoTime();
+        for (Point point : pointList) {
+            list.add(point);
+        }
+        endTime = System.nanoTime();
+        ts.insertTime = (endTime - startTime);
+        //System.out.println("List: Time taken For Insert Nodes: " + ts.insertTime + "ns");
+
+        // Test For Range Search
+        startTime = System.nanoTime();
+        Rectangle rect = new Rectangle(new Point(0, 0), new Point(100, 100));
+        ArrayList<Point> inRect = new ArrayList<Point>();
+        for (Point p : pointList) {
+            if (rect.getLeftTop().getX() <= p.getX() && rect.getLeftTop().getY() <= p.getY() &&
+                rect.getRightBottom().getX() >= p.getX() && rect.getRightBottom().getY() >= p.getY()) {
+                inRect.add(p);
+            }
+        }
+        Iterator<Point> iterator = inRect.iterator();
+        endTime = System.nanoTime();
+        ts.searchTime = (endTime - startTime);
+        //System.out.println("\nList: Time taken For Range Search: " + ts.searchTime + "ns");
+
+        while (iterator != null && iterator.hasNext()) {
+            Point next = iterator.next();
+            if(pointList.size() < 40) System.out.println(next);
+        }
+
+        // Test For KNN Search
+        startTime = System.nanoTime();
+        Point source = new Point(75, 85);
+        int searchCnt = 5;
+        HashMap<Double, Point> nearPoints = new HashMap<>();
+        double maxDist = -1;
+        for (Point p : pointList) {
+            double dist = source.distance(p);
+            if (nearPoints.size() < searchCnt) {
+                nearPoints.put(dist, p);
+                if (dist > maxDist) maxDist = dist;
+            }
+            else if (dist < maxDist) {
+                nearPoints.remove(maxDist);
+                nearPoints.put(dist, p);
+                maxDist = -1;
+                for (Map.Entry<Double, Point> e : nearPoints.entrySet()) {
+                    if (e.getKey() > maxDist) {
+                        maxDist = e.getKey();
+                    }
+                }
+            }
+        }
+        iterator = nearPoints.values().iterator();
+        endTime = System.nanoTime();
+        ts.nearestTime = (endTime - startTime);
+        //System.out.println("\nList: Time taken For KNN Search: " + ts.nearestTime + "ns");
+
+        while (iterator.hasNext()) {
+            Point next = iterator.next();
+            if(pointList.size() < 40) System.out.println(next + ":" + source.distance(next));
+        }
+
+        // Test For Delete Nodes
+        startTime = System.nanoTime();
+        for (Point point : pointList) {
+            list.remove(point);
+        }
+        endTime = System.nanoTime();
+        ts.deleteTime = (endTime - startTime);
+        //System.out.println("\nList: Time taken For Delete Nodes: " + ts.deleteTime + "ns");
+
+        //System.out.println(list.isEmpty());
+
+        ts.calculateWholeTime();
+        //System.out.println("\nList: Time taken For All Functions: " + ts.wholeTime + "ns");
+        //System.out.println("\n--------------------------------------------------------------------------------------------------------------\n");
+
+        return ts;
+    }
     static TimeStamp TestKDTree(List<Point> pointList) {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
