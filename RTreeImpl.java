@@ -1,5 +1,6 @@
 package org.dfpl.dbp.rtree;
 
+import javax.swing.*;
 import java.util.*;
 
 public class RTreeImpl implements RTree {
@@ -40,9 +41,26 @@ public class RTreeImpl implements RTree {
 	private static final int MAX_ENTRIES = 4; 	//최대 엔트리 수 4개(4-WAY R트리)
 	private static final int MIN_ENTRIES = MAX_ENTRIES / 3;	//최대 엔트리의 30퍼센트
 
-	public RTreeImpl(){
+    private RTreeListener listener;   // RTreePanel 을 붙여야함
+
+    public RTreeImpl(){
 		root = new Node(true);	//첫 루트노드 생성(루트노드 = 리프노드)
-	}
+        initVisualizer();
+    }
+
+    private void initVisualizer() {
+        RTreePanel panel = new RTreePanel();
+        this.listener = panel;
+
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("4-way R-Tree Visualizer");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.add(panel);
+            frame.setSize(800, 800);
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
+    }
 
 	//Rectangle에 구현할까 하다가 일단 여기에 구현(아래는 search에 사용되는 함수)
 	private boolean intersects(Rectangle a, Rectangle b) {		//a와 b사각형이 서로 겹치는지 확인(겹치면 탐색 내려감)
@@ -101,6 +119,11 @@ public class RTreeImpl implements RTree {
 		}
 		Rectangle mbr = pointToRectangle(point);
 		root.entries.add(new Entry(mbr, point, null));
+
+        updateNodeMBR(root);        // 시각화 예시 -> 성휘가 달아둠.
+
+        notifyTreeChanged();
+
 	}
 	private Rectangle pointToRectangle(Point p) {
 		return new Rectangle(new Point(p.getX(), p.getY()), new Point(p.getX(), p.getY()));
@@ -203,4 +226,88 @@ public class RTreeImpl implements RTree {
 		// TODO Auto-generated method stub
 		return false;
 	}
+
+    // 현재 트리의 모든 Point를 수집
+    private void collectPoints(Node node, List<Point> out) {
+        if (node == null) return;
+        if (node.isLeaf) {
+            for (Entry e : node.entries) {
+                if (e.point != null) {
+                    out.add(e.point);
+                }
+            }
+        } else {
+            for (Entry e : node.entries) {
+                if (e.child != null) {
+                    collectPoints(e.child, out);
+                }
+            }
+        }
+    }
+
+    // node.nodeMbr을 entries들의 mbr로부터 계산
+    private void updateNodeMBR(Node node) {
+        if (node == null || node.entries.isEmpty()) {
+            node.nodeMbr = null;
+            return;
+        }
+
+        double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+
+        for (Entry e : node.entries) {
+            Rectangle r = e.mbr;
+            if (r == null) continue;
+            double lx = r.getLeftTop().getX();
+            double ly = r.getLeftTop().getY();
+            double rx = r.getRightBottom().getX();
+            double ry = r.getRightBottom().getY();
+
+            if (lx < minX) minX = lx;
+            if (rx > maxX) maxX = rx;
+            if (ry < minY) minY = ry;
+            if (ly > maxY) maxY = ly;
+        }
+
+        node.nodeMbr = new Rectangle(new Point(minX, maxY), new Point(maxX, minY));
+    }
+
+    // 트리 전체의 nodeMbr들을 모아서 리턴
+    private void collectNodeMBRs(Node node, List<Rectangle> out) {
+        if (node == null) return;
+        if (node.nodeMbr != null) {
+            out.add(node.nodeMbr);
+        }
+        for (Entry e : node.entries) {
+            if (e.child != null) {
+                collectNodeMBRs(e.child, out);
+            }
+        }
+    }
+
+    // add/delete 이후 전체 트리 그림 갱신
+    private void notifyTreeChanged() {
+        if (listener == null) return;
+        List<Point> points = new ArrayList<>();
+        collectPoints(root, points);
+
+        // 루트의 nodeMbr 갱신 (지금은 루트만 있지만, 나중에 팀이 내부노드 채우면 같이 작동)
+        updateNodeMBR(root);
+        List<Rectangle> mbrs = new ArrayList<>();
+        collectNodeMBRs(root, mbrs);
+
+        listener.onTreeChanged(points, mbrs);
+    }
+
+    // search 과정 후 한 번에 뷰에 전달
+    private void notifySearchStep(Rectangle query, List<Rectangle> visited, List<Rectangle> pruned, List<Point> results) {
+        if (listener == null) return;
+        listener.onSearchStep(query, visited, pruned, results);
+    }
+
+    // KNN 검색 이후 결과를 뷰에 전달
+    private void notifyKnnStep(Point source, List<Rectangle> activeNodes, List<Point> candidates) {
+        if (listener == null) return;
+        listener.onKnnStep(source, activeNodes, candidates);
+    }
 }
