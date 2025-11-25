@@ -276,20 +276,6 @@ public class RTreeImpl implements RTree {
         searchPoints(root, rectangle, result);
         return result.iterator();
     }
-    /*
-    private boolean intersects(Rectangle a, Rectangle b) {		//a와 b사각형이 서로 겹치는지 확인(겹치면 탐색 내려감)
-        return !(a.getRightBottom().getX() < b.getLeftTop().getX() ||		//하나라도 겹치면 true
-                a.getLeftTop().getX() > b.getRightBottom().getX() ||
-                a.getRightBottom().getY() < b.getLeftTop().getY() ||
-                a.getLeftTop().getY() > b.getRightBottom().getY());
-    }
-    private boolean contains(Rectangle r, Point p) {		//마지막에 확인, 사각형 안에 들어오는 점은 true로 반환
-        return p.getX() >= r.getLeftTop().getX() &&
-                p.getX() <= r.getRightBottom().getX() &&
-                p.getY() >= r.getLeftTop().getY() &&
-                p.getY() <= r.getRightBottom().getY();
-    }
-*/
     private void searchPoints(RTreeNode node, Rectangle rectangle, List<Point> result) {
         //TODO 재귀 탐색 함수 구현
         // 1. 받아온 사각형 rectangle에 해당 노드의 mbr이 겹치는 지 확인 및 가지치기
@@ -362,38 +348,32 @@ public class RTreeImpl implements RTree {
         PriorityQueue<Point> result = new PriorityQueue<>(maxCount,	(p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
         // 탐색 중 후보 관리하는 우선순위 큐
         PriorityQueue<Candidate> candidates = new PriorityQueue<>(Comparator.comparingDouble(c -> c.minDist));
+        candidates.offer(new Candidate(root, minDistToRectangle(source, root.mbr))); // 루트 노드를 후보로 넣고 시작
 
-        if (!root.isLeaf) {
-            // 루트 노드의 모든 자식을 후보로 넣고 시작
-            for (RTreeNode child : root.children) {
-                double minDist = minDistToRectangle(source, child.mbr);
-                candidates.offer(new Candidate(child, minDist));
+        while (!candidates.isEmpty()) {
+            Candidate cand = candidates.poll();
+            double currentCandidateDist = cand.minDist;
+
+            // 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
+            if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
+                break;
             }
 
-            while (!candidates.isEmpty()) {
-                Candidate cand = candidates.poll();
-                double currentCandidateDist = cand.minDist;
-
-                // 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
-                if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
-                    break;
+            if (cand.node.isLeaf) { // 리프: 실제 점 발견
+                for (Point p : cand.node.points) {
+                    result.offer(p);
+                    if (result.size() > maxCount) {
+                        result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
+                    }
                 }
-
-                if (cand.node.isLeaf) { // 리프: 실제 점 발견
-                    for (Point p : cand.node.points) {
-                        result.offer(p);
-                        if (result.size() > maxCount) {
-                            result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
-                        }
-                    }
-                } else { // 내부 노드: 자식들 추가
-                    for (RTreeNode child : cand.node.children) {
-                        double childMinDist = minDistToRectangle(source, child.mbr);
-                        candidates.offer(new Candidate(child, childMinDist));
-                    }
+            } else { // 내부 노드: 자식들 추가
+                for (RTreeNode child : cand.node.children) {
+                    double childMinDist = minDistToRectangle(source, child.mbr);
+                    candidates.offer(new Candidate(child, childMinDist));
                 }
             }
         }
+
         // 결과는 가까운 순으로 정렬된 상태로 반환
         List<Point> sortedResult = new ArrayList<>(result);
         sortedResult.sort(Comparator.comparingDouble(p -> p.distance(source)));
@@ -423,7 +403,8 @@ public class RTreeImpl implements RTree {
             RTreeNode newRoot = root.children.get(0);
             newRoot.parent = null;
             root = newRoot;
-        } else if (root.isLeaf && root.points.isEmpty()) {
+        } else if (!root.isLeaf && root.children.isEmpty() ||
+                    root.isLeaf && root.points.isEmpty()) {
             root = RTreeNode.createLeaf();
         }
     }

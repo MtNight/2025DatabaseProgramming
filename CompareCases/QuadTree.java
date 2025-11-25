@@ -128,7 +128,7 @@ public class QuadTree {
             }
 
             //탐색하려는 다음 범위와의 거리가 현재 후보 중 최악보다 멈 + 이미 result 꽉 참 = 스킵
-            if (results.size() == maxCount && minDist >=  worstDistInResults) return;
+            if (results.size() == maxCount && minDist > worstDistInResults) continue;
 
             rKNNSearch(childNodes[idx], source, results, maxCount);
             alreadyCheck[idx] = true;
@@ -249,9 +249,9 @@ class qNode {
     }
     public boolean contains(Point p) {
         return  p.getX() >= rect.getLeftTop().getX() &&
-                p.getX() < rect.getRightBottom().getX() &&
+                p.getX() <= rect.getRightBottom().getX() &&
                 p.getY() >= rect.getLeftTop().getY() &&
-                p.getY() < rect.getRightBottom().getY();
+                p.getY() <= rect.getRightBottom().getY();
     }
     public void subDivide() {
         Rectangle luRect = new Rectangle(rect.getLeftTop(), middlePoint);
