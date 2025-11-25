@@ -1,6 +1,8 @@
 package org.dfpl.dbp.rtree.CompareCases;
 
 import org.dfpl.dbp.rtree.Point;
+import org.dfpl.dbp.rtree.RTree;
+import org.dfpl.dbp.rtree.RTreeImpl;
 import org.dfpl.dbp.rtree.Rectangle;
 
 import java.util.*;
@@ -26,7 +28,7 @@ public class ComparingTest {
         ArrayList<Point> arrayList = new ArrayList<>();
         LinkedList<Point> linkedList = new LinkedList<>();
 
-        //TimeStamp rt = TestRTree(testPoints);
+        TimeStamp rt = TestRTree(testPoints);
         TimeStamp arl = TestList(arrayList, testPoints);
         TimeStamp lkl = TestList(linkedList, testPoints);
         TimeStamp kdt = TestKDTree(testPoints);
@@ -34,31 +36,31 @@ public class ComparingTest {
 
         System.out.println("Test Results - testPoints: " + testPointCnt + "\n");
 
-        //System.out.println("insert time - RTree:\t"+rt.insertTime+"ns");
+        System.out.println("insert time - RTree:\t\t"+rt.insertTime+"ns");
         System.out.println("insert time - ArrayList:\t"+arl.insertTime+"ns");
         System.out.println("insert time - LinkedList:\t"+lkl.insertTime+"ns");
         System.out.println("insert time - KDTree:\t\t"+kdt.insertTime+"ns");
         System.out.println("insert time - QuadTree:\t\t"+qt.insertTime+"ns");
         System.out.println();
-        //System.out.println("search time - RTree:\t"+rt.searchTime+"ns");
+        System.out.println("search time - RTree:\t\t"+rt.searchTime+"ns");
         System.out.println("search time - ArrayList:\t"+arl.searchTime+"ns");
         System.out.println("search time - LinkedList:\t"+lkl.searchTime+"ns");
         System.out.println("search time - KDTree:\t\t"+kdt.searchTime+"ns");
         System.out.println("search time - QuadTree:\t\t"+qt.searchTime+"ns");
         System.out.println();
-        //System.out.println("nearest time - RTree:\t"+rt.nearestTime+"ns");
+        System.out.println("nearest time - RTree:\t\t"+rt.nearestTime+"ns");
         System.out.println("nearest time - ArrayList:\t"+arl.nearestTime+"ns");
         System.out.println("nearest time - LinkedList:\t"+lkl.nearestTime+"ns");
         System.out.println("nearest time - KDTree:\t\t"+kdt.nearestTime+"ns");
         System.out.println("nearest time - QuadTree:\t"+qt.nearestTime+"ns");
         System.out.println();
-        //System.out.println("delete time - RTree:\t"+rt.deleteTime+"ns");
+        System.out.println("delete time - RTree:\t\t"+rt.deleteTime+"ns");
         System.out.println("delete time - ArrayList:\t"+arl.deleteTime+"ns");
         System.out.println("delete time - LinkedList:\t"+lkl.deleteTime+"ns");
         System.out.println("delete time - KDTree:\t\t"+kdt.deleteTime+"ns");
         System.out.println("delete time - QuadTree:\t\t"+qt.deleteTime+"ns");
         System.out.println();
-        //System.out.println("whole time - RTree:\t"+rt.wholeTime+"ns");
+        System.out.println("whole time - RTree:\t\t\t"+rt.wholeTime+"ns");
         System.out.println("whole time - ArrayList:\t\t"+arl.wholeTime+"ns");
         System.out.println("whole time - LinkedList:\t"+lkl.wholeTime+"ns");
         System.out.println("whole time - KDTree:\t\t"+kdt.wholeTime+"ns");
@@ -85,6 +87,66 @@ public class ComparingTest {
     QuadTree는 KDTree보다 분할도 더 하는 데다가, 삽입삭제 시 속도가 빠름. 그러나 정확하게 반반으로 나누기 때문에 N이 커질수록 점점 분할이 어려워져서 느려지는 듯?
 
     */
+
+    // 각 기능들을 테스트하는 코드들.
+    // 이거 상속 이용해서 한번에 묶어서 할 수도 있을 것 같은데... RTree코드가 어떻게 만들어질지 모르겠고, 이미 주어져있는 RTree interface를 건드려야 할 수도 있는 게 부담스러워서 그냥 각각 따로 구현함
+    static TimeStamp TestRTree(List<Point> pointList) {
+        long startTime, endTime;
+        TimeStamp ts = new TimeStamp();
+        //Main Case: RTree
+        RTree rTree = new RTreeImpl();
+
+        // Test For Insert Nodes
+        startTime = System.nanoTime();
+        for (Point point : pointList) {
+            rTree.add(point);
+        }
+        endTime = System.nanoTime();
+        ts.insertTime = (endTime - startTime);
+        System.out.println("RTree: Time taken For Insert Nodes: " + ts.insertTime + "ns");
+
+        // Test For Range Search
+        startTime = System.nanoTime();
+        Iterator<Point> iterator = rTree.search(new Rectangle(new Point(0, 0), new Point(100, 100)));
+        endTime = System.nanoTime();
+        ts.searchTime = (endTime - startTime);
+        System.out.println("\nRTree: Time taken For Range Search: " + ts.searchTime + "ns");
+
+        while (iterator != null && iterator.hasNext()) {
+            Point next = iterator.next();
+            if(pointList.size() < 40) System.out.println(next);
+        }
+
+        // Test For KNN Search
+        startTime = System.nanoTime();
+        Point source = new Point(75, 85);
+        iterator = rTree.nearest(source, 5);
+        endTime = System.nanoTime();
+        ts.nearestTime = (endTime - startTime);
+        System.out.println("\nRTree: Time taken For KNN Search: " + ts.nearestTime + "ns");
+
+        while (iterator.hasNext()) {
+            Point next = iterator.next();
+            if(pointList.size() < 40) System.out.println(next + ":" + source.distance(next));
+        }
+
+        // Test For Delete Nodes
+        startTime = System.nanoTime();
+        for (Point point : pointList) {
+            rTree.delete(point);
+        }
+        endTime = System.nanoTime();
+        ts.deleteTime = (endTime - startTime);
+        System.out.println("\nRTree: Time taken For Delete Nodes: " + ts.deleteTime + "ns");
+
+        System.out.println(rTree.isEmpty());
+
+        ts.calculateWholeTime();
+        System.out.println("\nRTree: Time taken For All Functions: " + ts.wholeTime + "ns");
+        System.out.println("\n--------------------------------------------------------------------------------------------------------------\n");
+
+        return ts;
+    }
     static TimeStamp TestList(List<Point> list, List<Point> pointList) {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
