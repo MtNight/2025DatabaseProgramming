@@ -73,10 +73,10 @@ public class RTreeNode {
             maxY = Math.max(maxY, p.getY());
         }
 
-        // leftTop = (minX, maxY), rightBottom = (maxX, minY)
+        // leftTop = (minX, minY), rightBottom = (minX, minY)
         mbr = new Rectangle(
-                new Point(minX, maxY),
-                new Point(maxX, minY)
+                new Point(minX, minY),
+                new Point(maxX, maxY)
         );
     }
 
@@ -104,8 +104,8 @@ public class RTreeNode {
 
         double minX = first.getLeftTop().getX();
         double maxX = first.getRightBottom().getX();
-        double minY = first.getRightBottom().getY();
-        double maxY = first.getLeftTop().getY();
+        double minY = first.getLeftTop().getY();
+        double maxY = first.getRightBottom().getY();
 
         for (RTreeNode child : children) {
             if (child.mbr == null) continue;
@@ -113,13 +113,13 @@ public class RTreeNode {
 
             minX = Math.min(minX, r.getLeftTop().getX());
             maxX = Math.max(maxX, r.getRightBottom().getX());
-            minY = Math.min(minY, r.getRightBottom().getY());
-            maxY = Math.max(maxY, r.getLeftTop().getY());
+            minY = Math.min(minY, r.getLeftTop().getY());
+            maxY = Math.max(maxY, r.getRightBottom().getY());
         }
 
         mbr = new Rectangle(
-                new Point(minX, maxY),
-                new Point(maxX, minY)
+                new Point(minX, minY),
+                new Point(maxX, maxY)
         );
     }
 }
