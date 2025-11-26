@@ -581,17 +581,20 @@ public class RTreeImpl implements RTree {
         collectNodeMBRs(root, mbrs);
 
         listener.onTreeChanged(points, mbrs);
+        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
     }
 
     // search 과정 후 한 번에 뷰에 전달
     private void notifySearchStep(Rectangle query, List<Rectangle> visited, List<Rectangle> pruned, List<Point> results) {
         if (listener == null) return;
         listener.onSearchStep(query, visited, pruned, results);
+        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
     }
 
     // KNN 검색 이후 결과를 뷰에 전달
     private void notifyKnnStep(Point source, List<Rectangle> activeNodes, List<Point> candidates) {
         if (listener == null) return;
         listener.onKnnStep(source, activeNodes, candidates);
+        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
     }
 }
