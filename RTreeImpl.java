@@ -1,7 +1,9 @@
 package org.dfpl.dbp.rtree;
 
 import javax.swing.*;
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 public class RTreeImpl implements RTree {
 
@@ -33,16 +35,29 @@ public class RTreeImpl implements RTree {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("4-way R-Tree Visualizer (RTreeImpl)");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setContentPane(panel);
-            frame.pack();
-            frame.setSize(800, 800);
+
+            frame.setLayout(new BorderLayout());
+            frame.add(panel, BorderLayout.CENTER);
+
+            frame.setSize(800, 900);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
     }
 
+    private void log(String msg) {
+        if (listener instanceof RTreePanel) {
+            ((RTreePanel) listener).setLogText(msg);
+        }
+    }
+
     @Override
     public void add(Point point) {
+        insert(point, false);   // ← 일반 추가: 로그 O
+    }
+
+    // 실제 삽입 로직은 여기로 모음
+    private void insert(Point point, boolean fromReinsert) {
 
         // oot가 null일 가능성 방어
         if (root == null) {
@@ -77,6 +92,11 @@ public class RTreeImpl implements RTree {
 
         // 시각화 갱신
         notifyTreeChanged();
+
+        // 재삽입이 아닐 때만 "ADD" 로그를 찍는다
+        if (!fromReinsert) {
+            log("ADD: " + point);
+        }
     }
 
     // leaf 탐색 함수
@@ -290,46 +310,104 @@ public class RTreeImpl implements RTree {
         }
     }
 
-    public Iterator<Point> search(Rectangle rectangle) {		//반환값이 이터레이터
+    @Override
+    public Iterator<Point> search(Rectangle rectangle) {        //반환값이 이터레이터
         // TODO 탐색함수 구현
-        // 	1. 여기서 포인터 리스트 리턴
+        //  1. 여기서 포인터 리스트 리턴
         //  2. 만약 루트가 없거나, 루트가 리프노드인데 포인트가 없다면 빈이터레이터 리턴
         //  3. 점 구하는 함수 부르고, 돌아오면 해당하는 리스트 리턴
-        if(root == null || (root.isLeaf && root.points.isEmpty())) return Collections.emptyIterator();
+        if (root == null || (root.isLeaf && root.points.isEmpty())) return Collections.emptyIterator();
 
         List<Point> result = new ArrayList<>();
-        searchPoints(root, rectangle, result);
+        // ★ 시각화를 위한 방문 / 가지치기 리스트
+        List<Rectangle> visited = new ArrayList<>();
+        List<Rectangle> pruned = new ArrayList<>();
 
-        // 시각화용 콜백
-        notifySearchStep(rectangle, Collections.emptyList(), Collections.emptyList(), result);
+        // 재귀 탐색 + 단계별 시각화
+        searchPoints(root, rectangle, result, visited, pruned);
+
+        // ★ 최종 결과 상태를 잠깐 유지
+        sleepQuiet(700);   // 0.7~1초 정도 유지 (취향대로 수정 가능)
+
+        // ★ search 관련 오버레이만 초기화 (트리/포인트는 유지)
+        notifySearchStep(
+                null,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
 
         return result.iterator();
     }
 
-    private void searchPoints(RTreeNode node, Rectangle rectangle, List<Point> result) {
-        //TODO 재귀 탐색 함수 구현
-        // 1. 받아온 사각형 rectangle에 해당 노드의 mbr이 겹치는 지 확인 및 가지치기
-        // 2. 내부노드면 rectangle에 children의 mbr이 겹치는 지 확인 후 재귀 수행
-        // 3. 리프노드면 points의 포인트가 사각형에 들어오는지 확인 후 결과값 추가
+    //TODO 재귀 탐색 함수 구현
+// 1. 받아온 사각형 rectangle에 해당 노드의 mbr이 겹치는 지 확인 및 가지치기
+// 2. 내부노드면 rectangle에 children의 mbr이 겹치는 지 확인 후 재귀 수행
+// 3. 리프노드면 points의 포인트가 사각형에 들어오는지 확인 후 결과값 추가
+    private void searchPoints(RTreeNode node,
+                              Rectangle rectangle,
+                              List<Point> result,
+                              List<Rectangle> visited,
+                              List<Rectangle> pruned) {
 
-        //사용자가 그린 사각형에 node의 MBR이 겹치는 지 확인
-        if (node.mbr == null || !rectangle.intersects(node.mbr)) return;
+        // node 자체가 가지치기 되는 경우
+        if (node.mbr == null || !rectangle.intersects(node.mbr)) {
+            if (node.mbr != null) {
+                pruned.add(node.mbr);
+                visualizeSearchStep(rectangle, visited, pruned, result);
+            }
+            return;
+        }
+
+        // 여기까지 왔으면 이 노드는 "방문"된 것
+        visited.add(node.mbr);
+        visualizeSearchStep(rectangle, visited, pruned, result);
 
         // 내부노드라면
         if (!node.isLeaf) {
             for (RTreeNode child : node.children) {
-                if (child.mbr != null && rectangle.intersects(child.mbr)) {    //사용자가 그린 사각형에 child의 MBR이 겹치는 지 확인
-                    searchPoints(child, rectangle, result); // 재귀
+                if (child == null || child.mbr == null) continue;
+
+                if (rectangle.intersects(child.mbr)) {
+                    // child.mbr이 검색 범위와 겹치면 재귀 내려감
+                    searchPoints(child, rectangle, result, visited, pruned);
+                } else {
+                    //TODO:(Swing) child.mbr 이 가지치기 되는 경우
+                    pruned.add(child.mbr);
+                    visualizeSearchStep(rectangle, visited, pruned, result);
                 }
             }
             return;
         }
-        // 리프노드라면
+
+        // 리프노드라면 - 실제 포인트 확인
         for (Point p : node.points) {
             if (rectangle.contains(p)) {   //points의 포인트들이 사각형에 들어오는지 확인
                 result.add(p);  //있으면 결과값에 추가
+                //TODO:(Swing) 발견한 노드 녹색 표시 point는 p
+                visualizeSearchStep(rectangle, visited, pruned, result);
             }
         }
+    }
+
+    // ====================== 시각화 공통 Helper ======================
+    private void sleepQuiet(int ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ignored) {}
+    }
+
+    private void visualizeSearchStep(Rectangle query,
+                                     List<Rectangle> visited,
+                                     List<Rectangle> pruned,
+                                     List<Point> results) {
+        notifySearchStep(
+                query,
+                new ArrayList<>(visited),
+                new ArrayList<>(pruned),
+                new ArrayList<>(results)
+        );
+        sleepQuiet(700);
     }
 
     //아래는 nearest에 포함되는 함수
@@ -374,33 +452,98 @@ public class RTreeImpl implements RTree {
         if (source == null || root == null || (root.isLeaf && root.points.isEmpty()) || maxCount <= 0) {
             return Collections.emptyIterator();
         }
+
         // 결과 저장용 우선순위 큐
-        PriorityQueue<Point> result = new PriorityQueue<>(maxCount,	(p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
+        PriorityQueue<Point> result = new PriorityQueue<>(maxCount,
+                (p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
         // 탐색 중 후보 관리하는 우선순위 큐
         PriorityQueue<Candidate> candidates = new PriorityQueue<>(Comparator.comparingDouble(c -> c.minDist));
-        candidates.offer(new Candidate(root, minDistToRectangle(source, root.mbr))); // 루트 노드를 후보로 넣고 시작
+
+        // KNN 시각화를 위한 리스트
+        List<Rectangle> activeNodes = new ArrayList<>();
+        List<Point> candidatePointsVis = new ArrayList<>();
+        List<Point> removedPointsVis = new ArrayList<>();
+
+        // 루트 노드를 후보로 넣고 시작
+        candidates.offer(new Candidate(root, minDistToRectangle(source, root.mbr)));
+
+        //TODO: KNN탐색 시작:(Swing)  기준점 source(이건 표시되니 괜찮.), 찾을 개수 maxCount + 현재 찾은 개수 0(result:size()) 띄워주기
+        activeNodes.clear();
+        if (root.mbr != null) activeNodes.add(root.mbr);
+        candidatePointsVis.clear();
+        removedPointsVis.clear();
+        notifyKnnStep(source, activeNodes, candidatePointsVis,
+                new ArrayList<>(result), removedPointsVis, maxCount);
+        sleepQuiet(700);
 
         while (!candidates.isEmpty()) {
             Candidate cand = candidates.poll();
             double currentCandidateDist = cand.minDist;
 
+            // 현재 후보 노드를 활성노드로 표시
+            activeNodes.clear();
+            if (cand.node.mbr != null) {
+                activeNodes.add(cand.node.mbr);
+            }
+
             // 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
             if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
+                //TODO:(Swing) 결과값이 5개 다차있고, 최대거리보다 후보 mbr의 거리가 더 멀면 해당 mbr 부분 X표시 (가지치기)
+                //cand.node.points를 x표시 하시면 될거에요!
+                candidatePointsVis.clear();
+                if (cand.node.isLeaf && cand.node.points != null) {
+                    candidatePointsVis.addAll(cand.node.points);
+                }
+
+                notifyKnnStep(source, activeNodes, candidatePointsVis,
+                        new ArrayList<>(result), removedPointsVis, maxCount);
+                sleepQuiet(700);
                 break;
             }
 
             if (cand.node.isLeaf) { // 리프: 실제 점 발견
+                //TODO:(Swing) 후보 노드들 파란색으로 표시
+                // cand.node.points
+                candidatePointsVis.clear();
+                if (cand.node.points != null) {
+                    candidatePointsVis.addAll(cand.node.points);
+                }
+                notifyKnnStep(source, activeNodes, candidatePointsVis,
+                        new ArrayList<>(result), removedPointsVis, maxCount);
+                sleepQuiet(700);
+
                 for (Point p : cand.node.points) {
                     result.offer(p);
                     if (result.size() > maxCount) {
-                        result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
+                        Point removed = result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
+                        //TODO:(Swing) removed(포인트)를 녹색점에서 X표시로 변경
+                        removedPointsVis.add(removed);
                     }
+                    //TODO:(Swing)발견한 노드 녹색 표시 point는 p
+                    // → result PQ에 들어간 것들은 resultSnapshot으로 넘겨서 녹색으로 그림
+                    List<Point> resultSnapshot = new ArrayList<>(result);
+                    notifyKnnStep(source, activeNodes, candidatePointsVis,
+                            resultSnapshot, removedPointsVis, maxCount);
+                    sleepQuiet(700);
                 }
+                //TODO:(Swing) 파란색이었던 후보노드들 녹색으로 변경
+                // → candidatePointsVis를 비우고, result만 남게 함
+                candidatePointsVis.clear();
+                notifyKnnStep(source, activeNodes, candidatePointsVis,
+                        new ArrayList<>(result), removedPointsVis, maxCount);
+                sleepQuiet(700);
+
             } else { // 내부 노드: 자식들 추가
                 for (RTreeNode child : cand.node.children) {
+                    if (child == null || child.mbr == null) continue;
                     double childMinDist = minDistToRectangle(source, child.mbr);
                     candidates.offer(new Candidate(child, childMinDist));
                 }
+                // 내부 노드 방문 상태도 잠깐 보여줌
+                candidatePointsVis.clear();
+                notifyKnnStep(source, activeNodes, candidatePointsVis,
+                        new ArrayList<>(result), removedPointsVis, maxCount);
+                sleepQuiet(700);
             }
         }
 
@@ -408,8 +551,23 @@ public class RTreeImpl implements RTree {
         List<Point> sortedResult = new ArrayList<>(result);
         sortedResult.sort(Comparator.comparingDouble(p -> p.distance(source)));
 
-        // 시각화용 KNN 콜백
-        notifyKnnStep(source, Collections.emptyList(), sortedResult);
+        //TODO:(Swing) 끝나면 지금까지 값들 좌표 반환? 할까요? 모르겠네
+        // → 최종 결과를 한 번 더 보여주고 종료
+        activeNodes.clear();
+        candidatePointsVis.clear();
+        notifyKnnStep(source, activeNodes, candidatePointsVis,
+                sortedResult, removedPointsVis, maxCount);
+        sleepQuiet(2000);
+
+        // 최종 상태 잠깐 보여준 뒤, KNN 오버레이 전부 초기화
+        notifyKnnStep(
+                null,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                0
+        );
 
         return sortedResult.iterator();
     }
@@ -441,6 +599,9 @@ public class RTreeImpl implements RTree {
                 root.isLeaf && root.points.isEmpty()) {
             root = RTreeNode.createLeaf();
         }
+
+        log("DELETE: " + point);
+
 
         notifyTreeChanged();
     }
@@ -579,22 +740,28 @@ public class RTreeImpl implements RTree {
         }
         List<Rectangle> mbrs = new ArrayList<>();
         collectNodeMBRs(root, mbrs);
+        try { Thread.sleep(700); } catch (InterruptedException ignored) {}
 
         listener.onTreeChanged(points, mbrs);
-        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
     }
 
     // search 과정 후 한 번에 뷰에 전달
     private void notifySearchStep(Rectangle query, List<Rectangle> visited, List<Rectangle> pruned, List<Point> results) {
         if (listener == null) return;
         listener.onSearchStep(query, visited, pruned, results);
-        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
     }
 
     // KNN 검색 이후 결과를 뷰에 전달
-    private void notifyKnnStep(Point source, List<Rectangle> activeNodes, List<Point> candidates) {
+    private void notifyKnnStep(
+            Point source,
+            List<Rectangle> activeNodes,
+            List<Point> candidatePoints,
+            List<Point> resultPoints,      // 확정된 KNN 점들(녹색)
+            List<Point> removedPoints,     // 제거된 점들(X)
+            int maxCount                   // 목표 개수
+    ) {
         if (listener == null) return;
-        listener.onKnnStep(source, activeNodes, candidates);
-        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+
+        listener.onKnnStep(source, activeNodes, candidatePoints, resultPoints, removedPoints, maxCount);
     }
 }
