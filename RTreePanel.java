@@ -27,8 +27,14 @@ public class RTreePanel extends JPanel implements RTreeListener {
     }
 
     @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(800, 800);
+    }
+
+    @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+
 
         Graphics2D g2 = (Graphics2D) g;
         g2.setStroke(new BasicStroke(1.3f));

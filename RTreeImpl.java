@@ -33,7 +33,8 @@ public class RTreeImpl implements RTree {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("4-way R-Tree Visualizer (RTreeImpl)");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.add(panel);
+            frame.setContentPane(panel);
+            frame.pack();
             frame.setSize(800, 800);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
@@ -542,6 +543,7 @@ public class RTreeImpl implements RTree {
         if (node.isLeaf) {
             out.addAll(node.points);
         } else {
+            if (node.children == null) return;
             for (RTreeNode child : node.children) {
                 collectPoints(child, out);
             }
@@ -551,9 +553,16 @@ public class RTreeImpl implements RTree {
     // 트리 전체의 mbr들을 모아서 리턴
     private void collectNodeMBRs(RTreeNode node, List<Rectangle> out) {
         if (node == null) return;
+
         if (node.mbr != null) {
             out.add(node.mbr);
         }
+
+        // ★ leaf면 children이 null이므로 더 내려가지 않는다.
+        if (node.isLeaf || node.children == null) {
+            return;
+        }
+
         for (RTreeNode child : node.children) {
             collectNodeMBRs(child, out);
         }
