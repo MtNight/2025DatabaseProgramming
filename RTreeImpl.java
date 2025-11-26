@@ -313,23 +313,13 @@ public class RTreeImpl implements RTree {
         // 3. 리프노드면 points의 포인트가 사각형에 들어오는지 확인 후 결과값 추가
 
         //사용자가 그린 사각형에 node의 MBR이 겹치는 지 확인
-        if (node.mbr == null || !rectangle.intersects(node.mbr)){
-            //TODO:(Swing)가지치기가 발생되어 해당 값 표시
-            // 여기 node.mbr x표시 or 점들 X
-            // 성휘님 그리고 가지치기 되는 과정도 딜레이 줘서 표시할 수 있도록 해주세요!
-            return;
-        }
+        if (node.mbr == null || !rectangle.intersects(node.mbr)) return;
 
         // 내부노드라면
         if (!node.isLeaf) {
             for (RTreeNode child : node.children) {
                 if (child.mbr != null && rectangle.intersects(child.mbr)) {    //사용자가 그린 사각형에 child의 MBR이 겹치는 지 확인
                     searchPoints(child, rectangle, result); // 재귀
-                }
-                else{
-                    //TODO:(Swing)가지치기 발생되어 해당 값 표시
-                    // 여기 child.mbr x표시
-                    // 여기도!
                 }
             }
             return;
@@ -338,7 +328,6 @@ public class RTreeImpl implements RTree {
         for (Point p : node.points) {
             if (rectangle.contains(p)) {   //points의 포인트들이 사각형에 들어오는지 확인
                 result.add(p);  //있으면 결과값에 추가
-                //TODO:(Swing)발견한 노드 녹색 표시 point는 p
             }
         }
     }
@@ -376,7 +365,7 @@ public class RTreeImpl implements RTree {
     //최근접 이웃 알고리즘(KNN)으로 탐색
     @Override
     public Iterator<Point> nearest(Point source, int maxCount) {
-        //TODO 가장 가까운 점 탐색
+        // TODO 가장 가까운 점 탐색
         // 1. 루트노드의 모든 엔트리를 후보로 넣은 후
         // 2. 가장 가까운 루트 mbr탐색
         // 3. 점을 발견할 시 result로 넣어주고, result중 가장 먼 점과의 거리가 기준
@@ -385,9 +374,6 @@ public class RTreeImpl implements RTree {
         if (source == null || root == null || (root.isLeaf && root.points.isEmpty()) || maxCount <= 0) {
             return Collections.emptyIterator();
         }
-
-        //TODO: KNN탐색 시작:(Swing)  기준점 source(이건 표시되니 괜찮.), 찾을 개수 maxCount + 현재 찾은 개수 0(result:size()) 띄워주기
-
         // 결과 저장용 우선순위 큐
         PriorityQueue<Point> result = new PriorityQueue<>(maxCount,	(p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
         // 탐색 중 후보 관리하는 우선순위 큐
@@ -400,22 +386,16 @@ public class RTreeImpl implements RTree {
 
             // 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
             if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
-                //TODO:(Swing) 결과값이 5개 다차있고, 최대거리보다 후보 mbr의 거리가 더 멀면 해당 mbr 부분 X표시 (가지치기)
-                //cand.node.points를 x표시 하시면 될거에요!
                 break;
             }
 
             if (cand.node.isLeaf) { // 리프: 실제 점 발견
-                //TODO:(Swing) 후보 노드들 파란색으로 표시
-                // cand.node.points
                 for (Point p : cand.node.points) {
                     result.offer(p);
                     if (result.size() > maxCount) {
-                        Point removed = result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
-                        //TODO:(Swing) removed(포인트)를 녹색점에서 X표시로 변경
+                        result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
                     }
                 }
-                //TODO:(Swing) 파란색이었던 후보노드들 녹색으로 변경
             } else { // 내부 노드: 자식들 추가
                 for (RTreeNode child : cand.node.children) {
                     double childMinDist = minDistToRectangle(source, child.mbr);
@@ -430,7 +410,7 @@ public class RTreeImpl implements RTree {
 
         // 시각화용 KNN 콜백
         notifyKnnStep(source, Collections.emptyList(), sortedResult);
-        //TODO:(Swing) 끝나면 지금까지 값들 좌표 반환? 할까요? 모르겠네
+
         return sortedResult.iterator();
     }
 
