@@ -5,46 +5,24 @@ import java.util.*;
 
 public class RTreeImpl implements RTree {
 
-	// 요건 4-way R-Tree로 구현한다.
-	// Maven Project로 만든다.
-	// 기존의 R-Tree를 활용하지 않는다.
-	// 여러분의 프로젝트에는 최소한의 dependency가 포함되어 있어야 함.
-	// 멤버 변수의 활용은 어느정도 자유로움
-	// 단, R-Tree 구현이어야 하고, 요행을 바라지 않는다.
+    // 4-way R-Tree의 최소 엔트리 수 (MIN)는 MAX의 절반인 2
+    public static final int MIN = RTreeNode.MAX / 2;
 
-	private static class Entry{
-		Rectangle mbr;
-		Point point;
-		Node child;
+    // R-Tree의 루트 노드
+    private RTreeNode root;
 
-		public Entry(Rectangle mbr, Point point, Node child) {
-			this.mbr = mbr;
-			this.point = point;
-			this.child = child;
-		}
-	}
+    // 재삽입을 위해 수집된 Point 객체를 임시로 담는 리스트
+    private List<Point> reinsertPoints = new ArrayList<>();
 
+    // R-Tree의 재삽입은 Point만으로 충분하며, 내부 노드 재삽입은 복잡하여 생략합니다.
+    // private List<RTreeNode> reinsertNodes = new ArrayList<>();
 
-	private static class Node{
-		boolean isLeaf; //리프 노드인지에 대한 변수
-		List<Entry> entries; //엔트리에 대한 정보.
-		Rectangle nodeMbr;		//해당 노드를 감싸는 MBR
-
-		public Node(boolean isLeaf) {
-			this.isLeaf = isLeaf;
-			this.entries = new ArrayList<>();
-			this.nodeMbr = null;
-		}
-	}
-
-	private Node root;		//루트노드
-	private static final int MAX_ENTRIES = 4; 	//최대 엔트리 수 4개(4-WAY R트리)
-	private static final int MIN_ENTRIES = MAX_ENTRIES / 3;	//최대 엔트리의 30퍼센트
-
+    // 시각화용 리스너
     private RTreeListener listener;   // RTreePanel 을 붙여야함
 
-    public RTreeImpl(){
-		root = new Node(true);	//첫 루트노드 생성(루트노드 = 리프노드)
+    public RTreeImpl() {
+        // R-tree는 최소 1개의 리프 노드로 시작해야 한다.
+        this.root = RTreeNode.createLeaf();
         initVisualizer();
     }
 
@@ -53,7 +31,7 @@ public class RTreeImpl implements RTree {
         this.listener = panel;
 
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("4-way R-Tree Visualizer");
+            JFrame frame = new JFrame("4-way R-Tree Visualizer (RTreeImpl)");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.add(panel);
             frame.setSize(800, 800);
@@ -62,226 +40,522 @@ public class RTreeImpl implements RTree {
         });
     }
 
-	//Rectangle에 구현할까 하다가 일단 여기에 구현(아래는 search에 사용되는 함수)
-	private boolean intersects(Rectangle a, Rectangle b) {		//a와 b사각형이 서로 겹치는지 확인(겹치면 탐색 내려감)
-		return !(a.getRightBottom().getX() < b.getLeftTop().getX() ||		//하나라도 겹치면 true
-				a.getLeftTop().getX() > b.getRightBottom().getX() ||
-				a.getRightBottom().getY() < b.getLeftTop().getY() ||
-				a.getLeftTop().getY() > b.getRightBottom().getY());
-	}
+    @Override
+    public void add(Point point) {
 
-	private boolean contains(Rectangle r, Point p) {		//마지막에 확인, 사각형 안에 들어오는 점은 true로 반환
-		return p.getX() >= r.getLeftTop().getX() &&
-				p.getX() <= r.getRightBottom().getX() &&
-				p.getY() >= r.getLeftTop().getY() &&
-				p.getY() <= r.getRightBottom().getY();
-	}
+        // oot가 null일 가능성 방어
+        if (root == null) {
+            root = RTreeNode.createLeaf();
+        }
 
-	//아래는 nearest에 포함되는 함수
-	// 후보 객체 (엔트리 + 그 엔트리까지의 최소 거리)
-	private static class Candidate {
-		Entry entry;
-		double minDist; // find에서 이 MBR까지의 최소 거리
+        if (point == null) return;
 
-		Candidate(Entry entry, double minDist) {
-			this.entry = entry;
-			this.minDist = minDist;
-		}
-	}
+        // 1. 삽입할 leaf 선택
+        RTreeNode leaf = chooseLeaf(root, point);
 
-	// 점에서 사각형까지의 최소 거리 (0이면 겹치거나 안에 있음)
-	private double minDistToRectangle(Point p, Rectangle rect) {
-		double px = p.getX();
-		double py = p.getY();
+        // 2. 중복 점이면 무시
+        for (Point p : leaf.points) {
+            if (p.getX() == point.getX() && p.getY() == point.getY()) {
+                return;
+            }
+        }
 
-		double rx1 = rect.getLeftTop().getX();
-		double ry1 = rect.getLeftTop().getY();
-		double rx2 = rect.getRightBottom().getX();
-		double ry2 = rect.getRightBottom().getY();
+        // 3. 삽입
+        leaf.points.add(point);
 
-		//점이 사각형 밖에 있다면 가장 가까운 경계까지의 거리를 구한다
-		//사각형 안에있으면 0
-		double dx = Math.max(0, Math.max(rx1 - px, px - rx2));
-		double dy = Math.max(0, Math.max(ry1 - py, py - ry2));
+        // 4. 리프노드 MBR 갱신
+        leaf.updateMBR();
 
-		return Math.sqrt(dx * dx + dy * dy);	//거리 반환
-	}
+        // 5. 부모 방향으로 MBR 업데이트
+        adjustMBR(leaf);
 
-	//add 간단히 구현
-	@Override
-	public void add(Point point) {
-		// TODO Auto-generated method stub
-		if (point == null) return;
-		for (Entry e : root.entries) {
-			if (e.point != null && e.point.getX() == point.getX() && e.point.getY() == point.getY()) {
-				return;
-			}
-		}
-		Rectangle mbr = pointToRectangle(point);
-		root.entries.add(new Entry(mbr, point, null));
+        // 6. 용량 초과 시 분할(split)
+        if (leaf.points.size() > RTreeNode.MAX) {
+            splitLeaf(leaf);
+        }
 
-        updateNodeMBR(root);        // 시각화 예시 -> 성휘가 달아둠.
-
+        // 시각화 갱신
         notifyTreeChanged();
+    }
 
-	}
-	private Rectangle pointToRectangle(Point p) {
-		return new Rectangle(new Point(p.getX(), p.getY()), new Point(p.getX(), p.getY()));
-	}
+    // leaf 탐색 함수
+    private RTreeNode chooseLeaf(RTreeNode node, Point p) {
 
-	@Override
-	public Iterator<Point> search(Rectangle rectangle) {		//반환값이 이터레이터
-		// TODO 탐색함수 구현
-		// 	1. 여기서 포인터 리스트 리턴
-		//  2. 만약 루트가 없거나, 엔트리가 없다면 빈이터레이터 리턴
-		//  3. 점 구하는 함수 부르고, 돌아오면 해당하는 리스트 리턴
-		if(root == null || root.entries.isEmpty()) return Collections.emptyIterator();
+        if (node == null) return RTreeNode.createLeaf();
 
-		List<Point> result = new ArrayList<>();
-		searchPoints(root, rectangle, result);
-		return result.iterator();
-	}
+        // 1. 리프노드면 반환
+        if (node.isLeaf) return node;
 
-	private void searchPoints(Node node, Rectangle rectangle, List<Point> result) {
-		//TODO 재귀 탐색 함수 구현
-		// 1. 받아온 사각형에 엔트리들 순회하며, 겹치는 mbr 탐색
-		// 2. 리프노드면 mbr의 포인트가 사각형에 들어오는지 확인
-		// 3. 포함되면 결과값에 추가
-		for(Entry entry : node.entries){
-			if(intersects(entry.mbr, rectangle)){		//사용자가 그린 사각형에 MBR이 겹치는 지 확인
-				if(node.isLeaf){				//그게 리프노드라면
-					if(entry.point != null && contains(rectangle, entry.point)){	//entry의 포인트들이 사각형에 들어오는지 확인
-						result.add(entry.point);		//있으면 결과값에 추가
-					}
-				}
-				else{		//내부노드라면
-					if(entry.child != null){	//만약 자식노드가 존재한다면
-						searchPoints(entry.child, rectangle, result);	//재귀
-					}
-				}
-			}
-			//MBR이 겹치지 않으면 다음 MBR로 넘어감
-		}
-	}
+        // 2. 내부 노드 → child 중 확장량 가장 작게 드는 것 선택
+        RTreeNode best = null;
+        double bestExpand = Double.MAX_VALUE;
 
-	//최근접 이웃 알고리즘(KNN)으로 탐색
-	@Override
-	public Iterator<Point> nearest(Point source, int maxCount) {
-		// TODO 가장 가까운 점 탐색
-		// 1. 루트노드의 모든 엔트리를 후보로 넣은 후
-		// 2. 가장 가까운 루트 mbr탐색
-		// 3. 점을 발견할 시 result로 넣어주고, result중 가장 먼 점과의 거리가 기준
-		// 4. 넣어준 mbr이 기준보다 먼 mbr이면 탐색하지 않음.
-		// 5. 모든 루트 mbr탐색
-		if (source == null || root == null || root.entries.isEmpty() || maxCount <= 0) {
-			return Collections.emptyIterator();
-		}
-		// 결과 저장용 우선순위 큐
-		PriorityQueue<Point> result = new PriorityQueue<>(maxCount,	(p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
-		// 탐색 중 후보 관리하는 우선순위 큐
-		PriorityQueue<Candidate> candidates = new PriorityQueue<>(Comparator.comparingDouble(c -> c.minDist));
-		// 루트 노드의 모든 엔트리를 후보로 넣고 시작
-		for (Entry entry : root.entries) {
-			double minDist = minDistToRectangle(source, entry.mbr);
-			candidates.offer(new Candidate(entry, minDist));
-		}
-		int found = 0;	//찾은 개수
-		while (!candidates.isEmpty() && found < maxCount) {
-			Candidate cand = candidates.poll();
-			double currentCandidateDist = cand.minDist;
+        Rectangle pRect = new Rectangle(p, p);
 
-			// 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
-			if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
-				break;
-			}
+        for (RTreeNode child : node.children) {
+            if (child.mbr == null) continue;
 
-			if (cand.entry.point != null) { // 리프: 실제 점 발견
-				Point p = cand.entry.point;
-				result.offer(p);
-				if (result.size() > maxCount) {
-					result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
-				}
-				found++;
-			} else if (cand.entry.child != null) { // 내부 노드: 자식들 추가
-				for (Entry childEntry : cand.entry.child.entries) {
-					double childMinDist = minDistToRectangle(source, childEntry.mbr);
-					candidates.offer(new Candidate(childEntry, childMinDist));
-				}
-			}
-		}
-		// 결과는 가까운 순으로 정렬된 상태로 반환
-		List<Point> sortedResult = new ArrayList<>(result);
-		sortedResult.sort(Comparator.comparingDouble(p -> p.distance(source)));
-		return sortedResult.iterator();
-	}
+            double expand = child.mbr.enlargement(pRect);
 
-	@Override
-	public void delete(Point point) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public boolean isEmpty() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-    // 현재 트리의 모든 Point를 수집
-    private void collectPoints(Node node, List<Point> out) {
-        if (node == null) return;
-        if (node.isLeaf) {
-            for (Entry e : node.entries) {
-                if (e.point != null) {
-                    out.add(e.point);
-                }
+            if (expand < bestExpand) {
+                bestExpand = expand;
+                best = child;
             }
+        }
+
+        if (best != null) {
+            return chooseLeaf(best, p);
+        } else if (!node.children.isEmpty() && node.children.get(0).mbr != null) {
+            return chooseLeaf(node.children.get(0), p);
         } else {
-            for (Entry e : node.entries) {
-                if (e.child != null) {
-                    collectPoints(e.child, out);
-                }
-            }
+            return RTreeNode.createLeaf();
         }
     }
 
-    // node.nodeMbr을 entries들의 mbr로부터 계산
-    private void updateNodeMBR(Node node) {
-        if (node == null || node.entries.isEmpty()) {
-            node.nodeMbr = null;
+    // 부모 방향 MBR 재계산
+    private void adjustMBR(RTreeNode node) {
+        while (node != null) {
+            node.updateMBR();
+            node = node.parent;
+        }
+    }
+
+    // ======================================================================
+    //  Leaf Node Split (4-way, Linear split)
+    private void splitLeaf(RTreeNode leaf) {
+
+        // 기존 포인트들 복사
+        List<Point> pts = new ArrayList<>(leaf.points);
+        leaf.points.clear();
+
+        // 1. 가장 멀리 떨어진 두 점을 seed로 선택
+        Point seed1 = null;
+        Point seed2 = null;
+        double maxDist = -1;
+
+        for (int i = 0; i < pts.size(); i++) {
+            for (int j = i + 1; j < pts.size(); j++) {
+                double d = pts.get(i).distance(pts.get(j));
+                if (d > maxDist) {
+                    maxDist = d;
+                    seed1 = pts.get(i);
+                    seed2 = pts.get(j);
+                }
+            }
+        }
+
+        if (seed1 == null || seed2 == null) return;
+
+        // 새 리프 노드 생성
+        RTreeNode newLeaf = RTreeNode.createLeaf();
+        newLeaf.parent = leaf.parent;
+
+        // seed 배치
+        leaf.points.add(seed1);
+        newLeaf.points.add(seed2);
+
+        // seed만 있을 때의 MBR 계산
+        leaf.updateMBR();
+        newLeaf.updateMBR();
+
+        // 2. 나머지 포인트 배치
+        for (Point p : pts) {
+            if (p == seed1 || p == seed2) continue;
+
+            double enlargeOld = enlargementAfterInsert(leaf, p);
+            double enlargeNew = enlargementAfterInsert(newLeaf, p);
+
+            if (enlargeOld <= enlargeNew) {
+                leaf.points.add(p);
+            } else {
+                newLeaf.points.add(p);
+            }
+        }
+
+        leaf.updateMBR();
+        newLeaf.updateMBR();
+
+        // 3. 부모 갱신
+        adjustParentAfterSplit(leaf, newLeaf);
+    }
+
+    // leaf에 점 하나 더 넣었을 때 면적 증가량 계산
+    private double enlargementAfterInsert(RTreeNode leaf, Point p) {
+        Rectangle pRect = new Rectangle(p, p);
+        if (leaf.mbr == null) {
+            return pRect.area();
+        }
+        Rectangle newMBR = leaf.mbr.union(pRect);
+        return newMBR.area() - leaf.mbr.area();
+    }
+
+    // ======================================================================
+    //  Internal Node Split
+    private void splitInternal(RTreeNode node) {
+
+        List<RTreeNode> children = new ArrayList<>(node.children);
+        node.children.clear();
+
+        // 1. seed 두 개 선택 (MBR 면적 차이가 가장 큰 두 자식)
+        RTreeNode seed1 = null;
+        RTreeNode seed2 = null;
+        double maxDiff = -1;
+
+        for (int i = 0; i < children.size(); i++) {
+            for (int j = i + 1; j < children.size(); j++) {
+                if (children.get(i).mbr == null || children.get(j).mbr == null) continue;
+
+                double diff = Math.abs(children.get(i).mbr.area() - children.get(j).mbr.area());
+                if (diff > maxDiff) {
+                    maxDiff = diff;
+                    seed1 = children.get(i);
+                    seed2 = children.get(j);
+                }
+            }
+        }
+
+        if (seed1 == null || seed2 == null) return;
+
+        RTreeNode group1 = node;                 // 기존 노드가 그룹1
+        RTreeNode group2 = RTreeNode.createInternal();
+        group2.parent = node.parent;
+
+        group1.children.add(seed1);
+        group2.children.add(seed2);
+        seed1.parent = group1;
+        seed2.parent = group2;
+
+        group1.updateMBR();
+        group2.updateMBR();
+
+        // 2. 나머지 자식들 배치
+        for (RTreeNode c : children) {
+            if (c == seed1 || c == seed2) continue;
+
+            double enlarge1 = enlargementAfterInsert(group1, c.mbr);
+            double enlarge2 = enlargementAfterInsert(group2, c.mbr);
+
+            if (enlarge1 <= enlarge2) {
+                group1.children.add(c);
+                c.parent = group1;
+            } else {
+                group2.children.add(c);
+                c.parent = group2;
+            }
+        }
+
+        group1.updateMBR();
+        group2.updateMBR();
+
+        // 3. 부모 갱신
+        adjustParentAfterSplit(group1, group2);
+    }
+
+    // 내부 노드에 Rectangle 하나 더 포함시킬 때 증가 면적
+    private double enlargementAfterInsert(RTreeNode node, Rectangle r) {
+        if (node.mbr == null) {
+            return r.area();
+        }
+        Rectangle newMBR = node.mbr.union(r);
+        return newMBR.area() - node.mbr.area();
+    }
+
+    // leaf/internal split 후 부모 처리 (root split 포함)
+    private void adjustParentAfterSplit(RTreeNode n1, RTreeNode n2) {
+
+        RTreeNode parent = n1.parent;
+
+        // root 분할인 경우
+        if (parent == null) {
+            RTreeNode newRoot = RTreeNode.createInternal();
+            newRoot.children.add(n1);
+            newRoot.children.add(n2);
+            n1.parent = newRoot;
+            n2.parent = newRoot;
+            newRoot.updateMBR();
+            root = newRoot;
             return;
         }
 
-        double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
-        double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+        // 기존 parent에는 n1이 이미 있으므로, n2만 추가
+        parent.children.add(n2);
+        n2.parent = parent;
 
-        for (Entry e : node.entries) {
-            Rectangle r = e.mbr;
-            if (r == null) continue;
-            double lx = r.getLeftTop().getX();
-            double ly = r.getLeftTop().getY();
-            double rx = r.getRightBottom().getX();
-            double ry = r.getRightBottom().getY();
-
-            if (lx < minX) minX = lx;
-            if (rx > maxX) maxX = rx;
-            if (ry < minY) minY = ry;
-            if (ly > maxY) maxY = ly;
+        // parent도 overflow면 다시 split
+        if (parent.children.size() > RTreeNode.MAX) {
+            splitInternal(parent);
+        } else {
+            adjustMBR(parent);
         }
-
-        node.nodeMbr = new Rectangle(new Point(minX, maxY), new Point(maxX, minY));
     }
 
-    // 트리 전체의 nodeMbr들을 모아서 리턴
-    private void collectNodeMBRs(Node node, List<Rectangle> out) {
-        if (node == null) return;
-        if (node.nodeMbr != null) {
-            out.add(node.nodeMbr);
-        }
-        for (Entry e : node.entries) {
-            if (e.child != null) {
-                collectNodeMBRs(e.child, out);
+    public Iterator<Point> search(Rectangle rectangle) {		//반환값이 이터레이터
+        // TODO 탐색함수 구현
+        // 	1. 여기서 포인터 리스트 리턴
+        //  2. 만약 루트가 없거나, 루트가 리프노드인데 포인트가 없다면 빈이터레이터 리턴
+        //  3. 점 구하는 함수 부르고, 돌아오면 해당하는 리스트 리턴
+        if(root == null || (root.isLeaf && root.points.isEmpty())) return Collections.emptyIterator();
+
+        List<Point> result = new ArrayList<>();
+        searchPoints(root, rectangle, result);
+
+        // 시각화용 콜백
+        notifySearchStep(rectangle, Collections.emptyList(), Collections.emptyList(), result);
+
+        return result.iterator();
+    }
+
+    private void searchPoints(RTreeNode node, Rectangle rectangle, List<Point> result) {
+        //TODO 재귀 탐색 함수 구현
+        // 1. 받아온 사각형 rectangle에 해당 노드의 mbr이 겹치는 지 확인 및 가지치기
+        // 2. 내부노드면 rectangle에 children의 mbr이 겹치는 지 확인 후 재귀 수행
+        // 3. 리프노드면 points의 포인트가 사각형에 들어오는지 확인 후 결과값 추가
+
+        //사용자가 그린 사각형에 node의 MBR이 겹치는 지 확인
+        if (node.mbr == null || !rectangle.intersects(node.mbr)) return;
+
+        // 내부노드라면
+        if (!node.isLeaf) {
+            for (RTreeNode child : node.children) {
+                if (child.mbr != null && rectangle.intersects(child.mbr)) {    //사용자가 그린 사각형에 child의 MBR이 겹치는 지 확인
+                    searchPoints(child, rectangle, result); // 재귀
+                }
             }
+            return;
+        }
+        // 리프노드라면
+        for (Point p : node.points) {
+            if (rectangle.contains(p)) {   //points의 포인트들이 사각형에 들어오는지 확인
+                result.add(p);  //있으면 결과값에 추가
+            }
+        }
+    }
+
+    //아래는 nearest에 포함되는 함수
+    // 후보 객체 (노드 + 그 노드까지의 최소 거리)
+    private static class Candidate {
+        RTreeNode node;
+        double minDist; // find에서 이 MBR까지의 최소 거리
+
+        Candidate(RTreeNode minNode, double minDist) {
+            this.node = minNode;
+            this.minDist = minDist;
+        }
+    }
+
+    // 점에서 사각형까지의 최소 거리 (0이면 겹치거나 안에 있음)
+    private double minDistToRectangle(Point p, Rectangle rect) {
+        double px = p.getX();
+        double py = p.getY();
+
+        double rx1 = rect.getLeftTop().getX();
+        double ry1 = rect.getLeftTop().getY();
+        double rx2 = rect.getRightBottom().getX();
+        double ry2 = rect.getRightBottom().getY();
+
+        //점이 사각형 밖에 있다면 가장 가까운 경계까지의 거리를 구한다
+        //사각형 안에있으면 0
+        double dx = Math.max(0, Math.max(rx1 - px, px - rx2));
+        double dy = Math.max(0, Math.max(ry1 - py, py - ry2));
+
+        return Math.sqrt(dx * dx + dy * dy);	//거리 반환
+    }
+
+    //최근접 이웃 알고리즘(KNN)으로 탐색
+    @Override
+    public Iterator<Point> nearest(Point source, int maxCount) {
+        // TODO 가장 가까운 점 탐색
+        // 1. 루트노드의 모든 엔트리를 후보로 넣은 후
+        // 2. 가장 가까운 루트 mbr탐색
+        // 3. 점을 발견할 시 result로 넣어주고, result중 가장 먼 점과의 거리가 기준
+        // 4. 넣어준 mbr이 기준보다 먼 mbr이면 탐색하지 않음.
+        // 5. 모든 루트 mbr탐색
+        if (source == null || root == null || (root.isLeaf && root.points.isEmpty()) || maxCount <= 0) {
+            return Collections.emptyIterator();
+        }
+        // 결과 저장용 우선순위 큐
+        PriorityQueue<Point> result = new PriorityQueue<>(maxCount,	(p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
+        // 탐색 중 후보 관리하는 우선순위 큐
+        PriorityQueue<Candidate> candidates = new PriorityQueue<>(Comparator.comparingDouble(c -> c.minDist));
+        candidates.offer(new Candidate(root, minDistToRectangle(source, root.mbr))); // 루트 노드를 후보로 넣고 시작
+
+        while (!candidates.isEmpty()) {
+            Candidate cand = candidates.poll();
+            double currentCandidateDist = cand.minDist;
+
+            // 현재 후보의 minDist가 result의 가장 먼 점(peek)보다 크면 pruning
+            if (result.size() == maxCount && currentCandidateDist > result.peek().distance(source)) {
+                break;
+            }
+
+            if (cand.node.isLeaf) { // 리프: 실제 점 발견
+                for (Point p : cand.node.points) {
+                    result.offer(p);
+                    if (result.size() > maxCount) {
+                        result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
+                    }
+                }
+            } else { // 내부 노드: 자식들 추가
+                for (RTreeNode child : cand.node.children) {
+                    double childMinDist = minDistToRectangle(source, child.mbr);
+                    candidates.offer(new Candidate(child, childMinDist));
+                }
+            }
+        }
+
+        // 결과는 가까운 순으로 정렬된 상태로 반환
+        List<Point> sortedResult = new ArrayList<>(result);
+        sortedResult.sort(Comparator.comparingDouble(p -> p.distance(source)));
+
+        // 시각화용 KNN 콜백
+        notifyKnnStep(source, Collections.emptyList(), sortedResult);
+
+        return sortedResult.iterator();
+    }
+
+    // ======================================================================
+    //  Deletion Logic (Condense Tree 및 재삽입 포함)
+    @Override
+    public void delete(Point point) {
+        if (root == null) return;
+
+        RTreeNode leaf = findLeaf(root, point);
+        if (leaf == null) return;
+
+        // Point의 equals()를 사용하여 요소 제거
+        leaf.points.removeIf(p ->
+                p.getX() == point.getX() &&
+                        p.getY() == point.getY()
+        );
+
+        // 1. 노드 재조정 (Condense Tree) 로직 시작
+        condenseTree(leaf);
+
+        // 2. 루트 노드 정리
+        if (!root.isLeaf && root.children.size() == 1) {
+            RTreeNode newRoot = root.children.get(0);
+            newRoot.parent = null;
+            root = newRoot;
+        } else if (!root.isLeaf && root.children.isEmpty() ||
+                root.isLeaf && root.points.isEmpty()) {
+            root = RTreeNode.createLeaf();
+        }
+
+        notifyTreeChanged();
+    }
+
+    /**
+     * @brief 삭제 후 노드 재조정 (Condense Tree) 로직
+     */
+    private void condenseTree(RTreeNode node) {
+        RTreeNode n = node;
+
+        while (n != null && n != root) {
+            RTreeNode parent = n.parent;
+
+            if (parent == null) break;
+
+            // 1. 최소 엔트리 조건 검사
+            if ((n.isLeaf && n.points.size() < MIN) ||
+                    (!n.isLeaf && n.children.size() < MIN)) {
+
+                // 최소 조건을 위반하면 부모로부터 제거
+                parent.children.remove(n);
+
+                // === 재삽입을 위한 엔트리 수집 ===
+                if (n.isLeaf) {
+                    reinsertPoints.addAll(n.points); // 리프 노드의 Point 수집
+                    n.points.clear();
+                } else {
+                    // 내부 노드의 자식들(MBR)도 재삽입해야 하나, 과제 단순화를 위해 무시
+                }
+            }
+
+            // 2. MBR 갱신
+            parent.updateMBR();
+
+            n = parent;
+        }
+
+        if (root != null) {
+            root.updateMBR();
+        }
+
+        // === 재삽입 실행 ===
+        performReinsertion();
+    }
+
+    /**
+     * @brief CondenseTree에서 수집된 Point 엔트리들을 트리에 다시 삽입합니다.
+     */
+    private void performReinsertion() {
+        if (reinsertPoints.isEmpty()) return;
+
+        List<Point> pointsToReinsert = new ArrayList<>(reinsertPoints);
+        reinsertPoints.clear();
+
+        for (Point p : pointsToReinsert) {
+            add(p); // add 함수를 재사용하여 적절한 위치에 재삽입
+        }
+    }
+
+    // leaf 찾기
+    private RTreeNode findLeaf(RTreeNode node, Point target) {
+        if (node == null) return null;
+
+
+        // leaf라면 points에서 검색
+        if (node.isLeaf) {
+            for (Point p : node.points) {
+                if (p.getX() == target.getX() && p.getY() == target.getY()) {
+                    return node;
+                }
+            }
+            return null;
+        }
+
+        // 내부노드면 child의 MBR이 target을 포함하는 것만 탐색
+        for (RTreeNode child : node.children) {
+            if (child.mbr != null && child.mbr.contains(target)) {
+                RTreeNode found = findLeaf(child, target);
+                if (found != null) return found;
+            }
+        }
+
+        return null;
+    }
+
+    // -------------------------------------------------------------------
+    @Override
+    public boolean isEmpty() {
+        // 루트가 null인 경우를 대비하여 방어 코드 추가
+        if (root == null) return true;
+
+        return root.isLeaf && root.points.isEmpty();
+    }
+
+    // ====================== 시각화 Helper (RTreeNode 기반) ======================
+
+    // 현재 트리의 모든 Point를 수집
+    private void collectPoints(RTreeNode node, List<Point> out) {
+        if (node == null) return;
+        if (node.isLeaf) {
+            out.addAll(node.points);
+        } else {
+            for (RTreeNode child : node.children) {
+                collectPoints(child, out);
+            }
+        }
+    }
+
+    // 트리 전체의 mbr들을 모아서 리턴
+    private void collectNodeMBRs(RTreeNode node, List<Rectangle> out) {
+        if (node == null) return;
+        if (node.mbr != null) {
+            out.add(node.mbr);
+        }
+        for (RTreeNode child : node.children) {
+            collectNodeMBRs(child, out);
         }
     }
 
@@ -291,8 +565,9 @@ public class RTreeImpl implements RTree {
         List<Point> points = new ArrayList<>();
         collectPoints(root, points);
 
-        // 루트의 nodeMbr 갱신 (지금은 루트만 있지만, 나중에 팀이 내부노드 채우면 같이 작동)
-        updateNodeMBR(root);
+        if (root != null) {
+            root.updateMBR();
+        }
         List<Rectangle> mbrs = new ArrayList<>();
         collectNodeMBRs(root, mbrs);
 
