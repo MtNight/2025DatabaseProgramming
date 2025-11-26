@@ -1,7 +1,4 @@
-package org.dfpl.dbp.rtree;
-
-import javax.swing.*;
-import java.util.*;
+package org.dfpl.dbp.rtree.team_7;
 
 /*
 public class RTreeImpl_searchVer implements RTree {

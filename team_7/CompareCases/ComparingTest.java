@@ -1,9 +1,9 @@
-package org.dfpl.dbp.rtree.CompareCases;
+package org.dfpl.dbp.rtree.team_7.CompareCases;
 
-import org.dfpl.dbp.rtree.Point;
-import org.dfpl.dbp.rtree.RTree;
-import org.dfpl.dbp.rtree.RTreeImpl;
-import org.dfpl.dbp.rtree.Rectangle;
+import org.dfpl.dbp.rtree.team_7.Point;
+import org.dfpl.dbp.rtree.team_7.RTree;
+import org.dfpl.dbp.rtree.team_7.RTreeImpl;
+import org.dfpl.dbp.rtree.team_7.Rectangle;
 
 import java.util.*;
 

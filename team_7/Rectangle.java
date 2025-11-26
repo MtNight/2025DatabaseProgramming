@@ -1,4 +1,4 @@
-package org.dfpl.dbp.rtree;
+package org.dfpl.dbp.rtree.team_7;
 
 public class Rectangle {
 
