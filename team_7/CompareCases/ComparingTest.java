@@ -31,8 +31,8 @@ public class ComparingTest {
         int deletePointCnt = 1000;
 
         createRange = new Rectangle(new Point(0, 0), new Point(200, 200));    // 범위에 대한 조건이 없어서 과제 코드의 예제 포인트를 참조해서 기본적으로 200*200내의 점만 생성. 변경 가능
-        double w = createRange.getRightBottom().getX() -  createRange.getLeftTop().getX();
-        double h = createRange.getRightBottom().getY() -  createRange.getLeftTop().getY();
+        double w = createRange.getRightBottom().getX() - createRange.getLeftTop().getX();
+        double h = createRange.getRightBottom().getY() - createRange.getLeftTop().getY();
 
         deleteRange = createRange;
         deleteRange = new Rectangle(new Point(10, 10), new Point(20, 20));
@@ -42,19 +42,19 @@ public class ComparingTest {
 
         //랜덤 생성
         Random random = new Random();
-        for(int i=0;i<createPointCnt;i++) {
-            Point randomPoint = new Point(createRange.getLeftTop().getX() + random.nextDouble()*w,  createRange.getLeftTop().getY() + random.nextDouble()*h);
+        for (int i = 0; i < createPointCnt; i++) {
+            Point randomPoint = new Point(createRange.getLeftTop().getX() + random.nextDouble() * w, createRange.getLeftTop().getY() + random.nextDouble() * h);
             inputPoints.add(randomPoint);
             //if(i%(createPointCnt/deletePointCnt)==0) deletePoints.add(randomPoint);   //전체 삭제가 아닌 전역 랜덤 삭제인 경우 테스트
-            if(deleteRange.contains(randomPoint)) deletePoints.add(randomPoint);        //전체 삭제가 아닌 지역 삭제인 경우 테스트
+            if (deleteRange.contains(randomPoint)) deletePoints.add(randomPoint);        //전체 삭제가 아닌 지역 삭제인 경우 테스트
         }
         //분포 불균형 추가용
         Rectangle additionalRange = new Rectangle(new Point(0, 20), new Point(20, 50));
-        for(int i=0;i<createPointCnt/10;i++) {
-            Point randomPoint = new Point(additionalRange.getLeftTop().getX() + random.nextDouble()*w,  additionalRange.getLeftTop().getY() + random.nextDouble()*h);
+        for (int i = 0; i < createPointCnt / 10; i++) {
+            Point randomPoint = new Point(additionalRange.getLeftTop().getX() + random.nextDouble() * w, additionalRange.getLeftTop().getY() + random.nextDouble() * h);
             inputPoints.add(randomPoint);
             //if(i%(createPointCnt/deletePointCnt)==0) deletePoints.add(randomPoint);   //전체 삭제가 아닌 전역 랜덤 삭제인 경우 테스트
-            if(deleteRange.contains(randomPoint)) deletePoints.add(randomPoint);        //전체 삭제가 아닌 지역 삭제인 경우 테스트
+            if (deleteRange.contains(randomPoint)) deletePoints.add(randomPoint);        //전체 삭제가 아닌 지역 삭제인 경우 테스트
         }
         /*
         //균등 생성
@@ -69,6 +69,7 @@ public class ComparingTest {
         //printCompareResults(pointList, pointList);
         printCompareResults(inputPoints, deletePoints);
     }
+
     /*
     성능 테스트 내용 정리
     Insert
@@ -101,7 +102,7 @@ public class ComparingTest {
         TimeStamp kdt = TestKDTree(testInput, testDelete);
         TimeStamp qt = TestQuadTree(testInput, testDelete);
 
-        System.out.println("Test Results:\n"+
+        System.out.println("Test Results:\n" +
                 "\ttestInput: " + testInput.size() + "\n" +
                 "\ttestDelete: " + testDelete.size() + "\n" +
                 "\tcreateRange: \t\t\t" + createRange.toString() + "\n" +
@@ -111,35 +112,35 @@ public class ComparingTest {
                 "\tdeleteRange: \t\t\t" + deleteRange.toString());
 
         System.out.println();
-        System.out.println("insert time - RTree:\t\t"+rt.insertTime+"ns");
-        System.out.println("insert time - ArrayList:\t"+arl.insertTime+"ns");
-        System.out.println("insert time - LinkedList:\t"+lkl.insertTime+"ns");
-        System.out.println("insert time - KDTree:\t\t"+kdt.insertTime+"ns");
-        System.out.println("insert time - QuadTree:\t\t"+qt.insertTime+"ns");
+        System.out.println("insert time - RTree:\t\t" + rt.insertTime + "ns");
+        System.out.println("insert time - ArrayList:\t" + arl.insertTime + "ns");
+        System.out.println("insert time - LinkedList:\t" + lkl.insertTime + "ns");
+        System.out.println("insert time - KDTree:\t\t" + kdt.insertTime + "ns");
+        System.out.println("insert time - QuadTree:\t\t" + qt.insertTime + "ns");
         System.out.println();
-        System.out.println("search time - RTree:\t\t"+rt.searchTime+"ns");
-        System.out.println("search time - ArrayList:\t"+arl.searchTime+"ns");
-        System.out.println("search time - LinkedList:\t"+lkl.searchTime+"ns");
-        System.out.println("search time - KDTree:\t\t"+kdt.searchTime+"ns");
-        System.out.println("search time - QuadTree:\t\t"+qt.searchTime+"ns");
+        System.out.println("search time - RTree:\t\t" + rt.searchTime + "ns");
+        System.out.println("search time - ArrayList:\t" + arl.searchTime + "ns");
+        System.out.println("search time - LinkedList:\t" + lkl.searchTime + "ns");
+        System.out.println("search time - KDTree:\t\t" + kdt.searchTime + "ns");
+        System.out.println("search time - QuadTree:\t\t" + qt.searchTime + "ns");
         System.out.println();
-        System.out.println("nearest time - RTree:\t\t"+rt.nearestTime+"ns");
-        System.out.println("nearest time - ArrayList:\t"+arl.nearestTime+"ns");
-        System.out.println("nearest time - LinkedList:\t"+lkl.nearestTime+"ns");
-        System.out.println("nearest time - KDTree:\t\t"+kdt.nearestTime+"ns");
-        System.out.println("nearest time - QuadTree:\t"+qt.nearestTime+"ns");
+        System.out.println("nearest time - RTree:\t\t" + rt.nearestTime + "ns");
+        System.out.println("nearest time - ArrayList:\t" + arl.nearestTime + "ns");
+        System.out.println("nearest time - LinkedList:\t" + lkl.nearestTime + "ns");
+        System.out.println("nearest time - KDTree:\t\t" + kdt.nearestTime + "ns");
+        System.out.println("nearest time - QuadTree:\t" + qt.nearestTime + "ns");
         System.out.println();
-        System.out.println("delete time - RTree:\t\t"+rt.deleteTime+"ns");
-        System.out.println("delete time - ArrayList:\t"+arl.deleteTime+"ns");
-        System.out.println("delete time - LinkedList:\t"+lkl.deleteTime+"ns");
-        System.out.println("delete time - KDTree:\t\t"+kdt.deleteTime+"ns");
-        System.out.println("delete time - QuadTree:\t\t"+qt.deleteTime+"ns");
+        System.out.println("delete time - RTree:\t\t" + rt.deleteTime + "ns");
+        System.out.println("delete time - ArrayList:\t" + arl.deleteTime + "ns");
+        System.out.println("delete time - LinkedList:\t" + lkl.deleteTime + "ns");
+        System.out.println("delete time - KDTree:\t\t" + kdt.deleteTime + "ns");
+        System.out.println("delete time - QuadTree:\t\t" + qt.deleteTime + "ns");
         System.out.println();
-        System.out.println("whole time - RTree:\t\t\t"+rt.wholeTime+"ns");
-        System.out.println("whole time - ArrayList:\t\t"+arl.wholeTime+"ns");
-        System.out.println("whole time - LinkedList:\t"+lkl.wholeTime+"ns");
-        System.out.println("whole time - KDTree:\t\t"+kdt.wholeTime+"ns");
-        System.out.println("whole time - QuadTree:\t\t"+qt.wholeTime+"ns");
+        System.out.println("whole time - RTree:\t\t\t" + rt.wholeTime + "ns");
+        System.out.println("whole time - ArrayList:\t\t" + arl.wholeTime + "ns");
+        System.out.println("whole time - LinkedList:\t" + lkl.wholeTime + "ns");
+        System.out.println("whole time - KDTree:\t\t" + kdt.wholeTime + "ns");
+        System.out.println("whole time - QuadTree:\t\t" + qt.wholeTime + "ns");
         System.out.println("\n--------------------------------------------------------------------------------------------------------------\n");
     }
 
@@ -149,7 +150,8 @@ public class ComparingTest {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
         //Main Case: RTree
-        RTree rTree = new RTreeImpl();
+        // 시각화/딜레이 없는 RTreeImpl 사용 (성능 측정용)
+        RTree rTree = new RTreeImpl(false);
 
         // Test For Insert Nodes
         startTime = System.nanoTime();
@@ -169,7 +171,7 @@ public class ComparingTest {
 
         while (iterator != null && iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("Rtree Search " + next);
+            if (inputList.size() < 40) System.out.println("Rtree Search " + next);
         }
 
         // Test For KNN Search
@@ -181,12 +183,12 @@ public class ComparingTest {
 
         while (iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("Rtree KNN " + next + ":" + searchTestPoint.distance(next));
+            if (inputList.size() < 40) System.out.println("Rtree KNN " + next + ":" + searchTestPoint.distance(next));
         }
 
         // Test For Delete Nodes
         startTime = System.nanoTime();
-        for (Point point : inputList) {
+        for (Point point : inputList) {   // 기존 로직 그대로 유지
             rTree.delete(point);
         }
         endTime = System.nanoTime();
@@ -201,6 +203,7 @@ public class ComparingTest {
 
         return ts;
     }
+
     static TimeStamp TestList(List<Point> list, List<Point> inputList, List<Point> deleteList) {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
@@ -221,7 +224,7 @@ public class ComparingTest {
         ArrayList<Point> inRect = new ArrayList<Point>();
         for (Point p : inputList) {
             if (rect.getLeftTop().getX() <= p.getX() && rect.getLeftTop().getY() <= p.getY() &&
-                rect.getRightBottom().getX() >= p.getX() && rect.getRightBottom().getY() >= p.getY()) {
+                    rect.getRightBottom().getX() >= p.getX() && rect.getRightBottom().getY() >= p.getY()) {
                 inRect.add(p);
             }
         }
@@ -269,6 +272,7 @@ public class ComparingTest {
 
         return ts;
     }
+
     static TimeStamp TestKDTree(List<Point> inputList, List<Point> deleteList) {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
@@ -293,7 +297,7 @@ public class ComparingTest {
 
         while (iterator != null && iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("KDtree Search " + next);
+            if (inputList.size() < 40) System.out.println("KDtree Search " + next);
         }
 
         // Test For KNN Search
@@ -305,7 +309,7 @@ public class ComparingTest {
 
         while (iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("KDtree KNN " + next + ":" + searchTestPoint.distance(next));
+            if (inputList.size() < 40) System.out.println("KDtree KNN " + next + ":" + searchTestPoint.distance(next));
         }
 
         // Test For Delete Nodes
@@ -325,6 +329,7 @@ public class ComparingTest {
 
         return ts;
     }
+
     static TimeStamp TestQuadTree(List<Point> inputList, List<Point> deleteList) {
         long startTime, endTime;
         TimeStamp ts = new TimeStamp();
@@ -339,18 +344,18 @@ public class ComparingTest {
         }
         endTime = System.nanoTime();
         ts.insertTime = (endTime - startTime);
-        System.out.println("QuadTree: Time taken For Insert Nodes: " + ts.insertTime +"ns");
+        System.out.println("QuadTree: Time taken For Insert Nodes: " + ts.insertTime + "ns");
 
         // Test For Range Search
         startTime = System.nanoTime();
         Iterator<Point> iterator = quadTree.search(searchTestRect);
         endTime = System.nanoTime();
         ts.searchTime = (endTime - startTime);
-        System.out.println("QuadTree: Time taken For Range Search: " + ts.searchTime +"ns");
+        System.out.println("QuadTree: Time taken For Range Search: " + ts.searchTime + "ns");
 
-        while (iterator!=null && iterator.hasNext()) {
+        while (iterator != null && iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("Quadtree Search " + next);
+            if (inputList.size() < 40) System.out.println("Quadtree Search " + next);
         }
 
         // Test For KNN Search
@@ -358,10 +363,11 @@ public class ComparingTest {
         iterator = quadTree.nearest(searchTestPoint, kTest);
         endTime = System.nanoTime();
         ts.nearestTime = (endTime - startTime);
-        System.out.println("QuadTree: Time taken For KNN Search: " + ts.nearestTime +"ns");
+        System.out.println("QuadTree: Time taken For KNN Search: " + ts.nearestTime + "ns");
         while (iterator.hasNext()) {
             Point next = iterator.next();
-            if(inputList.size() < 40) System.out.println("Quadtree KNN " + next + ":" + searchTestPoint.distance(next));
+            if (inputList.size() < 40)
+                System.out.println("Quadtree KNN " + next + ":" + searchTestPoint.distance(next));
         }
 
         // Test For Delete Nodes
@@ -371,12 +377,12 @@ public class ComparingTest {
         }
         endTime = System.nanoTime();
         ts.deleteTime = (endTime - startTime);
-        System.out.println("QuadTree: Time taken For Delete Nodes: " + ts.deleteTime +"ns");
+        System.out.println("QuadTree: Time taken For Delete Nodes: " + ts.deleteTime + "ns");
 
         System.out.println(quadTree.isEmpty());
 
         ts.calculateWholeTime();
-        System.out.println("QuadTree: Time taken For All Functions: " + ts.wholeTime +"ns");
+        System.out.println("QuadTree: Time taken For All Functions: " + ts.wholeTime + "ns");
         System.out.println("\n--------------------------------------------------------------------------------------------------------------\n");
 
         return ts;

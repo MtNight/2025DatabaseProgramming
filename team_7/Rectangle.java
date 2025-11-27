@@ -2,8 +2,8 @@ package org.dfpl.dbp.rtree.team_7;
 
 public class Rectangle {
 
-	// 좌상단 포인트와 우하단 포인트로 표현
-    
+    // 좌상단 포인트와 우하단 포인트로 표현
+
     // 수정: 좌상단을 (minX, maxY), 우하단을 (maxX, minY) 형태(일반적인 수학 좌표계)를 가정하고 써있던 코드인데
     // 다른 코드와 통일성 등을 위해 왼쪽위를 최소점으로 생각하는 스크린 좌표로 변경했습니다. 그에 맞춰서 RTreeImpl도 살짝 수정
 
@@ -42,16 +42,16 @@ public class Rectangle {
     public boolean contains(Point p) {
         return (p.getX() >= leftTop.getX() &&
                 p.getX() <= rightBottom.getX() &&
-                p.getY() >= leftTop.getY() &&   // y ≤ minY
-                p.getY() <= rightBottom.getY()); // y ≥ maxY
+                p.getY() >= leftTop.getY() &&
+                p.getY() <= rightBottom.getY());
     }
 
     // 두 Rectangle이 서로 겹치는지 확인
     public boolean intersects(Rectangle other) {
         return !(other.rightBottom.getX() < this.leftTop.getX() ||   // 오른쪽 < 왼쪽
-                other.leftTop.getX() > this.rightBottom.getX() ||   // 왼쪽 > 오른쪽
-                other.rightBottom.getY() < this.leftTop.getY() ||   // 위 < 아래
-                other.leftTop.getY() > this.rightBottom.getY());    // 아래 > 위
+                other.leftTop.getX() > this.rightBottom.getX() ||    // 왼쪽 > 오른쪽
+                other.rightBottom.getY() < this.leftTop.getY() ||    // 위 < 아래
+                other.leftTop.getY() > this.rightBottom.getY());     // 아래 > 위
     }
 
     // 두 MBR을 모두 포함하는 새로운 MBR 생성

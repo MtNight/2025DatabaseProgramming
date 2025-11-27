@@ -14,21 +14,30 @@ public class RTreeImpl implements RTree {
     private RTreeNode root;
 
     // 재삽입을 위해 수집된 Point 객체를 임시로 담는 리스트
-    private List<org.dfpl.dbp.rtree.team_7.Point> reinsertPoints = new ArrayList<>();
-
-    // R-Tree의 재삽입은 Point만으로 충분하며, 내부 노드 재삽입은 복잡하여 생략합니다.
-    // private List<RTreeNode> reinsertNodes = new ArrayList<>();
+    private List<Point> reinsertPoints = new ArrayList<>();
 
     // 시각화용 리스너
     private RTreeListener listener;   // RTreePanel 을 붙여야함
 
+    // 시각화 on/off 플래그
+    private final boolean visualizationEnabled;
+
+    // RTreeImpl 기본 생성자 → 시각화 켜진 모드 (Assignment45에서 사용)
     public RTreeImpl() {
+        this(true);
+    }
+
+    // RTreeImpl 생성자 → 시각화 on/off 선택 가능 (ComparingTest 등에서 사용)
+    public RTreeImpl(boolean visualizationEnabled) {
+        this.visualizationEnabled = visualizationEnabled;
         // R-tree는 최소 1개의 리프 노드로 시작해야 한다.
         this.root = RTreeNode.createLeaf();
         initVisualizer();
     }
 
     private void initVisualizer() {
+        if (!visualizationEnabled) return;   // 시각화 끈 모드에서는 GUI 안 띄움
+
         RTreePanel panel = new RTreePanel();
         this.listener = panel;
 
@@ -46,20 +55,21 @@ public class RTreeImpl implements RTree {
     }
 
     private void log(String msg) {
+        if (!visualizationEnabled) return;   // 벤치마크 모드에서는 무시
         if (listener instanceof RTreePanel) {
             ((RTreePanel) listener).setLogText(msg);
         }
     }
 
     @Override
-    public void add(org.dfpl.dbp.rtree.team_7.Point point) {
+    public void add(Point point) {
         insert(point, false);   // ← 일반 추가: 로그 O
     }
 
     // 실제 삽입 로직은 여기로 모음
-    private void insert(org.dfpl.dbp.rtree.team_7.Point point, boolean fromReinsert) {
+    private void insert(Point point, boolean fromReinsert) {
 
-        // oot가 null일 가능성 방어
+        // root가 null일 가능성 방어
         if (root == null) {
             root = RTreeNode.createLeaf();
         }
@@ -70,7 +80,7 @@ public class RTreeImpl implements RTree {
         RTreeNode leaf = chooseLeaf(root, point);
 
         // 2. 중복 점이면 무시
-        for (org.dfpl.dbp.rtree.team_7.Point p : leaf.points) {
+        for (Point p : leaf.points) {
             if (p.getX() == point.getX() && p.getY() == point.getY()) {
                 return;
             }
@@ -100,7 +110,7 @@ public class RTreeImpl implements RTree {
     }
 
     // leaf 탐색 함수
-    private RTreeNode chooseLeaf(RTreeNode node, org.dfpl.dbp.rtree.team_7.Point p) {
+    private RTreeNode chooseLeaf(RTreeNode node, Point p) {
 
         if (node == null) return RTreeNode.createLeaf();
 
@@ -111,7 +121,7 @@ public class RTreeImpl implements RTree {
         RTreeNode best = null;
         double bestExpand = Double.MAX_VALUE;
 
-        org.dfpl.dbp.rtree.team_7.Rectangle pRect = new org.dfpl.dbp.rtree.team_7.Rectangle(p, p);
+        Rectangle pRect = new Rectangle(p, p);
 
         for (RTreeNode child : node.children) {
             if (child.mbr == null) continue;
@@ -146,12 +156,12 @@ public class RTreeImpl implements RTree {
     private void splitLeaf(RTreeNode leaf) {
 
         // 기존 포인트들 복사
-        List<org.dfpl.dbp.rtree.team_7.Point> pts = new ArrayList<>(leaf.points);
+        List<Point> pts = new ArrayList<>(leaf.points);
         leaf.points.clear();
 
         // 1. 가장 멀리 떨어진 두 점을 seed로 선택
-        org.dfpl.dbp.rtree.team_7.Point seed1 = null;
-        org.dfpl.dbp.rtree.team_7.Point seed2 = null;
+        Point seed1 = null;
+        Point seed2 = null;
         double maxDist = -1;
 
         for (int i = 0; i < pts.size(); i++) {
@@ -180,7 +190,7 @@ public class RTreeImpl implements RTree {
         newLeaf.updateMBR();
 
         // 2. 나머지 포인트 배치
-        for (org.dfpl.dbp.rtree.team_7.Point p : pts) {
+        for (Point p : pts) {
             if (p == seed1 || p == seed2) continue;
 
             double enlargeOld = enlargementAfterInsert(leaf, p);
@@ -201,12 +211,12 @@ public class RTreeImpl implements RTree {
     }
 
     // leaf에 점 하나 더 넣었을 때 면적 증가량 계산
-    private double enlargementAfterInsert(RTreeNode leaf, org.dfpl.dbp.rtree.team_7.Point p) {
-        org.dfpl.dbp.rtree.team_7.Rectangle pRect = new org.dfpl.dbp.rtree.team_7.Rectangle(p, p);
+    private double enlargementAfterInsert(RTreeNode leaf, Point p) {
+        Rectangle pRect = new Rectangle(p, p);
         if (leaf.mbr == null) {
             return pRect.area();
         }
-        org.dfpl.dbp.rtree.team_7.Rectangle newMBR = leaf.mbr.union(pRect);
+        Rectangle newMBR = leaf.mbr.union(pRect);
         return newMBR.area() - leaf.mbr.area();
     }
 
@@ -273,11 +283,11 @@ public class RTreeImpl implements RTree {
     }
 
     // 내부 노드에 Rectangle 하나 더 포함시킬 때 증가 면적
-    private double enlargementAfterInsert(RTreeNode node, org.dfpl.dbp.rtree.team_7.Rectangle r) {
+    private double enlargementAfterInsert(RTreeNode node, Rectangle r) {
         if (node.mbr == null) {
             return r.area();
         }
-        org.dfpl.dbp.rtree.team_7.Rectangle newMBR = node.mbr.union(r);
+        Rectangle newMBR = node.mbr.union(r);
         return newMBR.area() - node.mbr.area();
     }
 
@@ -311,17 +321,17 @@ public class RTreeImpl implements RTree {
     }
 
     @Override
-    public Iterator<org.dfpl.dbp.rtree.team_7.Point> search(org.dfpl.dbp.rtree.team_7.Rectangle rectangle) {        //반환값이 이터레이터
+    public Iterator<Point> search(Rectangle rectangle) {        //반환값이 이터레이터
         // TODO 탐색함수 구현
         //  1. 여기서 포인터 리스트 리턴
         //  2. 만약 루트가 없거나, 루트가 리프노드인데 포인트가 없다면 빈이터레이터 리턴
         //  3. 점 구하는 함수 부르고, 돌아오면 해당하는 리스트 리턴
         if (root == null || (root.isLeaf && root.points.isEmpty())) return Collections.emptyIterator();
 
-        List<org.dfpl.dbp.rtree.team_7.Point> result = new ArrayList<>();
+        List<Point> result = new ArrayList<>();
         // ★ 시각화를 위한 방문 / 가지치기 리스트
-        List<org.dfpl.dbp.rtree.team_7.Rectangle> visited = new ArrayList<>();
-        List<org.dfpl.dbp.rtree.team_7.Rectangle> pruned = new ArrayList<>();
+        List<Rectangle> visited = new ArrayList<>();
+        List<Rectangle> pruned = new ArrayList<>();
 
         // 재귀 탐색 + 단계별 시각화
         searchPoints(root, rectangle, result, visited, pruned);
@@ -345,10 +355,10 @@ public class RTreeImpl implements RTree {
 // 2. 내부노드면 rectangle에 children의 mbr이 겹치는 지 확인 후 재귀 수행
 // 3. 리프노드면 points의 포인트가 사각형에 들어오는지 확인 후 결과값 추가
     private void searchPoints(RTreeNode node,
-                              org.dfpl.dbp.rtree.team_7.Rectangle rectangle,
-                              List<org.dfpl.dbp.rtree.team_7.Point> result,
-                              List<org.dfpl.dbp.rtree.team_7.Rectangle> visited,
-                              List<org.dfpl.dbp.rtree.team_7.Rectangle> pruned) {
+                              Rectangle rectangle,
+                              List<Point> result,
+                              List<Rectangle> visited,
+                              List<Rectangle> pruned) {
 
         // node 자체가 가지치기 되는 경우
         if (node.mbr == null || !rectangle.intersects(node.mbr)) {
@@ -381,7 +391,7 @@ public class RTreeImpl implements RTree {
         }
 
         // 리프노드라면 - 실제 포인트 확인
-        for (org.dfpl.dbp.rtree.team_7.Point p : node.points) {
+        for (Point p : node.points) {
             if (rectangle.contains(p)) {   //points의 포인트들이 사각형에 들어오는지 확인
                 result.add(p);  //있으면 결과값에 추가
                 //TODO:(Swing) 발견한 노드 녹색 표시 point는 p
@@ -392,15 +402,16 @@ public class RTreeImpl implements RTree {
 
     // ====================== 시각화 공통 Helper ======================
     private void sleepQuiet(int ms) {
+        if (!visualizationEnabled) return;   // 벤치마크 모드에서는 sleep 안 함
         try {
             Thread.sleep(ms);
         } catch (InterruptedException ignored) {}
     }
 
-    private void visualizeSearchStep(org.dfpl.dbp.rtree.team_7.Rectangle query,
-                                     List<org.dfpl.dbp.rtree.team_7.Rectangle> visited,
-                                     List<org.dfpl.dbp.rtree.team_7.Rectangle> pruned,
-                                     List<org.dfpl.dbp.rtree.team_7.Point> results) {
+    private void visualizeSearchStep(Rectangle query,
+                                     List<Rectangle> visited,
+                                     List<Rectangle> pruned,
+                                     List<Point> results) {
         notifySearchStep(
                 query,
                 new ArrayList<>(visited),
@@ -423,7 +434,7 @@ public class RTreeImpl implements RTree {
     }
 
     // 점에서 사각형까지의 최소 거리 (0이면 겹치거나 안에 있음)
-    private double minDistToRectangle(org.dfpl.dbp.rtree.team_7.Point p, org.dfpl.dbp.rtree.team_7.Rectangle rect) {
+    private double minDistToRectangle(Point p, Rectangle rect) {
         double px = p.getX();
         double py = p.getY();
 
@@ -442,7 +453,7 @@ public class RTreeImpl implements RTree {
 
     //최근접 이웃 알고리즘(KNN)으로 탐색
     @Override
-    public Iterator<org.dfpl.dbp.rtree.team_7.Point> nearest(org.dfpl.dbp.rtree.team_7.Point source, int maxCount) {
+    public Iterator<Point> nearest(Point source, int maxCount) {
         // TODO 가장 가까운 점 탐색
         // 1. 루트노드의 모든 엔트리를 후보로 넣은 후
         // 2. 가장 가까운 루트 mbr탐색
@@ -454,15 +465,15 @@ public class RTreeImpl implements RTree {
         }
 
         // 결과 저장용 우선순위 큐
-        PriorityQueue<org.dfpl.dbp.rtree.team_7.Point> result = new PriorityQueue<>(maxCount,
+        PriorityQueue<Point> result = new PriorityQueue<>(maxCount,
                 (p1, p2) -> Double.compare(p2.distance(source), p1.distance(source))); // 내림차순
         // 탐색 중 후보 관리하는 우선순위 큐
         PriorityQueue<Candidate> candidates = new PriorityQueue<>(Comparator.comparingDouble(c -> c.minDist));
 
         // KNN 시각화를 위한 리스트
-        List<org.dfpl.dbp.rtree.team_7.Rectangle> activeNodes = new ArrayList<>();
-        List<org.dfpl.dbp.rtree.team_7.Point> candidatePointsVis = new ArrayList<>();
-        List<org.dfpl.dbp.rtree.team_7.Point> removedPointsVis = new ArrayList<>();
+        List<Rectangle> activeNodes = new ArrayList<>();
+        List<Point> candidatePointsVis = new ArrayList<>();
+        List<Point> removedPointsVis = new ArrayList<>();
 
         // 루트 노드를 후보로 넣고 시작
         candidates.offer(new Candidate(root, minDistToRectangle(source, root.mbr)));
@@ -512,16 +523,16 @@ public class RTreeImpl implements RTree {
                         new ArrayList<>(result), removedPointsVis, maxCount);
                 sleepQuiet(700);
 
-                for (org.dfpl.dbp.rtree.team_7.Point p : cand.node.points) {
+                for (Point p : cand.node.points) {
                     result.offer(p);
                     if (result.size() > maxCount) {
-                        org.dfpl.dbp.rtree.team_7.Point removed = result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
+                        Point removed = result.poll(); // 가장 먼 것 제거 → 항상 maxCount개 유지
                         //TODO:(Swing) removed(포인트)를 녹색점에서 X표시로 변경
                         removedPointsVis.add(removed);
                     }
                     //TODO:(Swing)발견한 노드 녹색 표시 point는 p
                     // → result PQ에 들어간 것들은 resultSnapshot으로 넘겨서 녹색으로 그림
-                    List<org.dfpl.dbp.rtree.team_7.Point> resultSnapshot = new ArrayList<>(result);
+                    List<Point> resultSnapshot = new ArrayList<>(result);
                     notifyKnnStep(source, activeNodes, candidatePointsVis,
                             resultSnapshot, removedPointsVis, maxCount);
                     sleepQuiet(700);
@@ -548,7 +559,7 @@ public class RTreeImpl implements RTree {
         }
 
         // 결과는 가까운 순으로 정렬된 상태로 반환
-        List<org.dfpl.dbp.rtree.team_7.Point> sortedResult = new ArrayList<>(result);
+        List<Point> sortedResult = new ArrayList<>(result);
         sortedResult.sort(Comparator.comparingDouble(p -> p.distance(source)));
 
         //TODO:(Swing) 끝나면 지금까지 값들 좌표 반환? 할까요? 모르겠네
@@ -569,13 +580,16 @@ public class RTreeImpl implements RTree {
                 0
         );
 
+        // KNN 탐색 완료 로그 (시각화 모드에서만 label로 보임)
+        log("KNN 탐색 완료: 최종 이웃 " + sortedResult.size() + "개");
+
         return sortedResult.iterator();
     }
 
     // ======================================================================
     //  Deletion Logic (Condense Tree 및 재삽입 포함)
     @Override
-    public void delete(org.dfpl.dbp.rtree.team_7.Point point) {
+    public void delete(Point point) {
         if (root == null) return;
 
         RTreeNode leaf = findLeaf(root, point);
@@ -653,22 +667,22 @@ public class RTreeImpl implements RTree {
     private void performReinsertion() {
         if (reinsertPoints.isEmpty()) return;
 
-        List<org.dfpl.dbp.rtree.team_7.Point> pointsToReinsert = new ArrayList<>(reinsertPoints);
+        List<Point> pointsToReinsert = new ArrayList<>(reinsertPoints);
         reinsertPoints.clear();
 
-        for (org.dfpl.dbp.rtree.team_7.Point p : pointsToReinsert) {
+        for (Point p : pointsToReinsert) {
             add(p); // add 함수를 재사용하여 적절한 위치에 재삽입
         }
     }
 
     // leaf 찾기
-    private RTreeNode findLeaf(RTreeNode node, org.dfpl.dbp.rtree.team_7.Point target) {
+    private RTreeNode findLeaf(RTreeNode node, Point target) {
         if (node == null) return null;
 
 
         // leaf라면 points에서 검색
         if (node.isLeaf) {
-            for (org.dfpl.dbp.rtree.team_7.Point p : node.points) {
+            for (Point p : node.points) {
                 if (p.getX() == target.getX() && p.getY() == target.getY()) {
                     return node;
                 }
@@ -699,7 +713,7 @@ public class RTreeImpl implements RTree {
     // ====================== 시각화 Helper (RTreeNode 기반) ======================
 
     // 현재 트리의 모든 Point를 수집
-    private void collectPoints(RTreeNode node, List<org.dfpl.dbp.rtree.team_7.Point> out) {
+    private void collectPoints(RTreeNode node, List<Point> out) {
         if (node == null) return;
         if (node.isLeaf) {
             out.addAll(node.points);
@@ -712,7 +726,7 @@ public class RTreeImpl implements RTree {
     }
 
     // 트리 전체의 mbr들을 모아서 리턴
-    private void collectNodeMBRs(RTreeNode node, List<org.dfpl.dbp.rtree.team_7.Rectangle> out) {
+    private void collectNodeMBRs(RTreeNode node, List<Rectangle> out) {
         if (node == null) return;
 
         if (node.mbr != null) {
@@ -731,37 +745,38 @@ public class RTreeImpl implements RTree {
 
     // add/delete 이후 전체 트리 그림 갱신
     private void notifyTreeChanged() {
-        if (listener == null) return;
-        List<org.dfpl.dbp.rtree.team_7.Point> points = new ArrayList<>();
+        if (!visualizationEnabled || listener == null) return;
+
+        List<Point> points = new ArrayList<>();
         collectPoints(root, points);
 
         if (root != null) {
             root.updateMBR();
         }
-        List<org.dfpl.dbp.rtree.team_7.Rectangle> mbrs = new ArrayList<>();
+        List<Rectangle> mbrs = new ArrayList<>();
         collectNodeMBRs(root, mbrs);
-        try { Thread.sleep(700); } catch (InterruptedException ignored) {}
+
+        sleepQuiet(700);
 
         listener.onTreeChanged(points, mbrs);
     }
 
     // search 과정 후 한 번에 뷰에 전달
-    private void notifySearchStep(org.dfpl.dbp.rtree.team_7.Rectangle query, List<org.dfpl.dbp.rtree.team_7.Rectangle> visited, List<org.dfpl.dbp.rtree.team_7.Rectangle> pruned, List<org.dfpl.dbp.rtree.team_7.Point> results) {
-        if (listener == null) return;
+    private void notifySearchStep(Rectangle query, List<Rectangle> visited, List<Rectangle> pruned, List<Point> results) {
+        if (!visualizationEnabled || listener == null) return;
         listener.onSearchStep(query, visited, pruned, results);
     }
 
     // KNN 검색 이후 결과를 뷰에 전달
     private void notifyKnnStep(
-            org.dfpl.dbp.rtree.team_7.Point source,
+            Point source,
             List<Rectangle> activeNodes,
-            List<org.dfpl.dbp.rtree.team_7.Point> candidatePoints,
-            List<org.dfpl.dbp.rtree.team_7.Point> resultPoints,      // 확정된 KNN 점들(녹색)
+            List<Point> candidatePoints,
+            List<Point> resultPoints,      // 확정된 KNN 점들(녹색)
             List<Point> removedPoints,     // 제거된 점들(X)
             int maxCount                   // 목표 개수
     ) {
-        if (listener == null) return;
-
+        if (!visualizationEnabled || listener == null) return;
         listener.onKnnStep(source, activeNodes, candidatePoints, resultPoints, removedPoints, maxCount);
     }
 }
