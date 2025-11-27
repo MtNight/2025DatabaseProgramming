@@ -11,41 +11,45 @@ import java.util.*;
 
     밸런싱을 안하기 때문에 삽입 포인트가 적으면 성능이 운에 많이 좌우됨
 */
-public class KDTree {
+public class KDTree implements SpatialIndex {
     kdNode root;
+
     public KDTree() {
         root = null;
     }
 
+    @Override
     public void add(Point point) {
-        kdNode n =rInsertNode(root, point, 0);
-        if(root == null) root = n;
+        kdNode n = rInsertNode(root, point, 0);
+        if (root == null) root = n;
         //System.out.println(n.point.toString());
     }
+
     kdNode rInsertNode(kdNode curNode, Point p, int depth) {
         if (curNode == null) return new kdNode(p);
 
         boolean isBasedOnX = depth % 2 == 0;
 
-        if((isBasedOnX && (p.getX() < curNode.point.getX()) ||
-          (!isBasedOnX && (p.getY() < curNode.point.getY())))
+        if ((isBasedOnX && (p.getX() < curNode.point.getX()) ||
+                (!isBasedOnX && (p.getY() < curNode.point.getY())))
         ) {
             curNode.leftNode = rInsertNode(curNode.leftNode, p, depth + 1);
-        }
-        else {
+        } else {
             curNode.rightNode = rInsertNode(curNode.rightNode, p, depth + 1);
         }
         return curNode;
     }
 
+    @Override
     public Iterator<Point> search(Rectangle rectangle) {
         ArrayList<Point> results = new ArrayList<>();
         return rRangeSearch(root, rectangle, results, 0).iterator();
     }
+
     ArrayList<Point> rRangeSearch(kdNode curNode, Rectangle rect, ArrayList<Point> results, int depth) {
         if (curNode == null) return null;
 
-        if(isPointInRect(curNode.point, rect)) {
+        if (isPointInRect(curNode.point, rect)) {
             results.add(curNode.point);
         }
 
@@ -53,32 +57,35 @@ public class KDTree {
 
         ArrayList<Point> r;
         if ((isBasedOnX && rect.getLeftTop().getX() <= curNode.point.getX()) ||
-           (!isBasedOnX && rect.getLeftTop().getY() <= curNode.point.getY())) {
+                (!isBasedOnX && rect.getLeftTop().getY() <= curNode.point.getY())) {
             r = rRangeSearch(curNode.leftNode, rect, results, depth + 1);
             if (r != null) results = r;
         }
 
         if ((isBasedOnX && rect.getRightBottom().getX() >= curNode.point.getX()) ||
-           (!isBasedOnX && rect.getRightBottom().getY() >= curNode.point.getY())) {
+                (!isBasedOnX && rect.getRightBottom().getY() >= curNode.point.getY())) {
             r = rRangeSearch(curNode.rightNode, rect, results, depth + 1);
             if (r != null) results = r;
         }
 
         return results;
     }
+
     boolean isPointInRect(Point p, Rectangle rect) {
-        return  p.getX()>=rect.getLeftTop().getX() &&
-                p.getX()<=rect.getRightBottom().getX() &&
-                p.getY()>=rect.getLeftTop().getY() &&
-                p.getY()<=rect.getRightBottom().getY();
+        return p.getX() >= rect.getLeftTop().getX() &&
+                p.getX() <= rect.getRightBottom().getX() &&
+                p.getY() >= rect.getLeftTop().getY() &&
+                p.getY() <= rect.getRightBottom().getY();
     }
 
+    @Override
     public Iterator<Point> nearest(Point source, int maxCount) {
         Map<Point, Double> results = new HashMap<Point, Double>();
         results = rKNNSearch(root, source, results, maxCount, 0);
 
         return results.keySet().iterator();
     }
+
     Map<Point, Double> rKNNSearch(kdNode curNode, Point source, Map<Point, Double> results, int maxCount, int depth) {
         if (curNode == null) return null;
 
@@ -87,8 +94,7 @@ public class KDTree {
 
         if (results.size() < maxCount) {
             results.put(curNode.point, dist);
-        }
-        else if (dist < maxPointDist.getValue()) {
+        } else if (dist < maxPointDist.getValue()) {
             results.remove(maxPointDist.getKey());
             results.put(curNode.point, dist);
         }
@@ -99,18 +105,16 @@ public class KDTree {
         if (isBasedOnX) {
             srcValue = source.getX();
             curValue = curNode.point.getX();
-        }
-        else {
+        } else {
             srcValue = source.getY();
             curValue = curNode.point.getY();
         }
         if (srcValue < curValue) {
             nearNodes = curNode.leftNode;
-            farNodes =  curNode.rightNode;
-        }
-        else {
+            farNodes = curNode.rightNode;
+        } else {
             nearNodes = curNode.rightNode;
-            farNodes =  curNode.leftNode;
+            farNodes = curNode.leftNode;
         }
 
         Map<Point, Double> r = rKNNSearch(nearNodes, source, results, maxCount, depth + 1);
@@ -121,21 +125,21 @@ public class KDTree {
         else {
             double splitDist = Math.abs(srcValue - curValue);
             maxPointDist = getMaxDistancePoint(results);
-            if(splitDist*splitDist < maxPointDist.getValue()) {
+            if (splitDist * splitDist < maxPointDist.getValue()) {
                 shouldVisit = true;
-            }
-            else shouldVisit = false;
+            } else shouldVisit = false;
         }
 
-        if(shouldVisit)  {
+        if (shouldVisit) {
             r = rKNNSearch(farNodes, source, results, maxCount, depth + 1);
             if (r != null) results = r;
         }
         return results;
     }
+
     Map.Entry<Point, Double> getMaxDistancePoint(Map<Point, Double> map) {
-        double maxDist=0;
-        Point maxPoint=null;
+        double maxDist = 0;
+        Point maxPoint = null;
         for (Map.Entry<Point, Double> e : map.entrySet()) {
             if (e.getValue() > maxDist) {
                 maxDist = e.getValue();
@@ -145,9 +149,11 @@ public class KDTree {
         return new AbstractMap.SimpleEntry<>(maxPoint, maxDist);
     }
 
+    @Override
     public void delete(Point point) {
         rDeleteNode(root, point, 0);
     }
+
     kdNode rDeleteNode(kdNode curNode, Point p, int depth) {
         if (curNode == null) return null;
 
@@ -155,13 +161,13 @@ public class KDTree {
 
         if (curNode.point.getX() == p.getX() && curNode.point.getY() == p.getY()) {
             if (curNode.rightNode != null) {
-                kdNode minNode = rFindMinNode(curNode.rightNode, isBasedOnX, depth+1);
+                kdNode minNode = rFindMinNode(curNode.rightNode, isBasedOnX, depth + 1);
                 curNode.point = minNode.point;
-                curNode.rightNode = rDeleteNode(curNode.rightNode, minNode.point, depth+1);
+                curNode.rightNode = rDeleteNode(curNode.rightNode, minNode.point, depth + 1);
                 return curNode;
             }
             if (curNode.leftNode != null) {
-                kdNode minNode = rFindMinNode(curNode.leftNode, isBasedOnX, depth+1);
+                kdNode minNode = rFindMinNode(curNode.leftNode, isBasedOnX, depth + 1);
                 curNode.point = minNode.point;
                 curNode.rightNode = rDeleteNode(curNode.leftNode, minNode.point, depth + 1);
                 curNode.leftNode = null;
@@ -173,16 +179,15 @@ public class KDTree {
         }
 
         if (((isBasedOnX && p.getX() < curNode.point.getX()) ||
-           ((!isBasedOnX && p.getY() < curNode.point.getY())))
-        )
-        {
+                ((!isBasedOnX && p.getY() < curNode.point.getY())))
+        ) {
             curNode.leftNode = rDeleteNode(curNode.leftNode, p, depth + 1);
-        }
-        else {
+        } else {
             curNode.rightNode = rDeleteNode(curNode.rightNode, p, depth + 1);
         }
         return curNode;
     }
+
     kdNode rFindMinNode(kdNode curNode, boolean isXAxis, int depth) {
         if (curNode == null) return null;
 
@@ -192,10 +197,10 @@ public class KDTree {
             if (curNode.leftNode == null) {
                 return curNode;
             }
-            return rFindMinNode(curNode.leftNode, isXAxis, depth+1);
+            return rFindMinNode(curNode.leftNode, isXAxis, depth + 1);
         }
-        kdNode leftMinNode = rFindMinNode(curNode.leftNode, isXAxis, depth+1);
-        kdNode rightMinNode = rFindMinNode(curNode.rightNode, isXAxis, depth+1);
+        kdNode leftMinNode = rFindMinNode(curNode.leftNode, isXAxis, depth + 1);
+        kdNode rightMinNode = rFindMinNode(curNode.rightNode, isXAxis, depth + 1);
 
         kdNode minNode = curNode;
 
@@ -207,16 +212,19 @@ public class KDTree {
         if (rightMinNode != null) {
             if (comparePointByAxis(rightMinNode.point, minNode.point, isXAxis) < 0) {
                 minNode = rightMinNode;
-            };
+            }
+            ;
         }
 
         return minNode;
     }
+
     int comparePointByAxis(Point a, Point b, boolean isXAxis) {
         if (isXAxis == true) return Double.compare(a.getX(), b.getX());
         return Double.compare(a.getY(), b.getY());
     }
 
+    @Override
     public boolean isEmpty() {
         return (root == null);
     }

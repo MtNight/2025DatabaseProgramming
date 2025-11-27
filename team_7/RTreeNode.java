@@ -73,7 +73,6 @@ public class RTreeNode {
             maxY = Math.max(maxY, p.getY());
         }
 
-        // leftTop = (minX, minY), rightBottom = (minX, minY)
         mbr = new Rectangle(
                 new Point(minX, minY),
                 new Point(maxX, maxY)
@@ -87,7 +86,6 @@ public class RTreeNode {
             return;
         }
 
-        // 자식 중 첫 번째의 MBR을 기준으로 시작
         Rectangle first = null;
         for (RTreeNode child : children) {
             if (child.mbr != null) {
@@ -100,7 +98,6 @@ public class RTreeNode {
             mbr = null;
             return;
         }
-
 
         double minX = first.getLeftTop().getX();
         double maxX = first.getRightBottom().getX();
